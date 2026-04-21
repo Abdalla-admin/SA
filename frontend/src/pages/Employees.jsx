@@ -1,0 +1,70 @@
+import { useEffect, useState } from 'react';
+import client from '../api/client';
+import Modal from '../components/Modal';
+
+const empty = { name:'', email:'', phone:'', position:'', department:'', salary:0, joinDate:'', active:true };
+
+export default function Employees() {
+  const [items, setItems] = useState([]);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState(empty);
+
+  useEffect(() => { client.get('/employees').then(r => setItems(r.data)); }, []);
+
+  const save = async e => {
+    e.preventDefault();
+    const payload = { ...form, salary: +form.salary };
+    if (form.id) {
+      const { data } = await client.put(`/employees/${form.id}`, payload);
+      setItems(i => i.map(x => x.id === data.id ? data : x));
+    } else {
+      const { data } = await client.post('/employees', payload);
+      setItems(i => [data, ...i]);
+    }
+    setModal(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
+        <button onClick={() => { setForm(empty); setModal(true); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Add Employee</button>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+            <tr>{['Name','Position','Department','Salary','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {items.map(e=>(
+              <tr key={e.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-medium">{e.name}</td>
+                <td className="px-4 py-3">{e.position||'—'}</td>
+                <td className="px-4 py-3 text-gray-500">{e.department||'—'}</td>
+                <td className="px-4 py-3">$ {e.salary?.toLocaleString()}</td>
+                <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs ${e.active?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}`}>{e.active?'Active':'Inactive'}</span></td>
+                <td className="px-4 py-3"><button onClick={()=>{setForm(e);setModal(true);}} className="text-blue-600 hover:underline text-xs">Edit</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {modal && (
+        <Modal title={form.id?'Edit Employee':'New Employee'} onClose={()=>setModal(false)}>
+          <form onSubmit={save} className="space-y-3">
+            {[['Name','name','text',true],['Email','email','email'],['Phone','phone','tel'],['Position','position','text'],['Department','department','text'],['Salary ($)','salary','number'],['Join Date','joinDate','date']].map(([l,k,t,req])=>(
+              <div key={k}>
+                <label className="block text-xs font-medium text-gray-600 mb-1">{l}</label>
+                <input type={t} required={!!req} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+              </div>
+            ))}
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={()=>setModal(false)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
+              <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Save</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
