@@ -1,45 +1,59 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usePermissions } from '../context/PermissionsContext';
 
 const nav = [
   { section: 'Overview' },
-  { to: '/',              label: 'Dashboard',      icon: '📊' },
+  { to: '/',              label: 'Dashboard',      icon: '📊', module: 'dashboard' },
   { section: 'Contacts' },
-  { to: '/customers',     label: 'Customers',      icon: '👤' },
-  { to: '/vendors',       label: 'Vendors',        icon: '🏪' },
-  { to: '/employees',     label: 'Employees',      icon: '👥' },
+  { to: '/customers',     label: 'Customers',      icon: '👤', module: 'customers' },
+  { to: '/vendors',       label: 'Vendors',        icon: '🏪', module: 'vendors' },
+  { to: '/employees',     label: 'Employees',      icon: '👥', module: 'employees' },
   { section: 'Operations' },
-  { to: '/leads',         label: 'Leads',          icon: '🎯' },
-  { to: '/projects',      label: 'Projects',       icon: '⚡' },
+  { to: '/leads',         label: 'Leads',          icon: '🎯', module: 'leads' },
+  { to: '/projects',      label: 'Projects',       icon: '⚡', module: 'projects' },
   { section: 'Inventory' },
-  { to: '/materials',     label: 'Materials',      icon: '🔧' },
-  { to: '/purchases',     label: 'Purchases',      icon: '🛒' },
+  { to: '/materials',     label: 'Materials',      icon: '🔧', module: 'materials' },
+  { to: '/purchases',     label: 'Purchases',      icon: '🛒', module: 'purchases' },
   { section: 'Finance' },
-  { to: '/quotations',    label: 'Quotations',     icon: '📋' },
-  { to: '/contracts',     label: 'Contracts',      icon: '📝' },
-  { to: '/invoices',      label: 'Invoices',       icon: '🧾' },
-  { to: '/payments',      label: 'Payments',       icon: '💳' },
-  { to: '/expenses',      label: 'Expenses',       icon: '💸' },
+  { to: '/quotations',    label: 'Quotations',     icon: '📋', module: 'quotations' },
+  { to: '/contracts',     label: 'Contracts',      icon: '📝', module: 'contracts' },
+  { to: '/invoices',      label: 'Invoices',       icon: '🧾', module: 'invoices' },
+  { to: '/payments',      label: 'Payments',       icon: '💳', module: 'payments' },
+  { to: '/expenses',      label: 'Expenses',       icon: '💸', module: 'expenses' },
   { section: 'Banking' },
-  { to: '/bank-accounts', label: 'Bank Accounts',  icon: '🏦' },
-  { to: '/fund-transfers',label: 'Fund Transfers',  icon: '🔄' },
+  { to: '/bank-accounts', label: 'Bank Accounts',  icon: '🏦', module: 'bank_accounts' },
+  { to: '/fund-transfers',label: 'Fund Transfers',  icon: '🔄', module: 'fund_transfers' },
   { section: 'After-Sales' },
-  { to: '/warranty',      label: 'Warranty',       icon: '🛡️' },
-  { to: '/maintenance',   label: 'Maintenance',    icon: '🔩' },
+  { to: '/warranty',      label: 'Warranty',       icon: '🛡️', module: 'warranty' },
+  { to: '/maintenance',   label: 'Maintenance',    icon: '🔩', module: 'maintenance' },
   { section: 'HR & Payroll' },
-  { to: '/attendance',    label: 'Attendance',     icon: '📅' },
-  { to: '/leave',         label: 'Leave',          icon: '🏖️' },
-  { to: '/payroll',       label: 'Payroll',        icon: '💰' },
+  { to: '/attendance',    label: 'Attendance',     icon: '📅', module: 'attendance' },
+  { to: '/leave',         label: 'Leave',          icon: '🏖️', module: 'leave' },
+  { to: '/payroll',       label: 'Payroll',        icon: '💰', module: 'payroll' },
   { section: 'Reports' },
-  { to: '/reports',       label: 'Reports',        icon: '📈' },
+  { to: '/reports',       label: 'Reports',        icon: '📈', module: 'reports' },
   { section: 'Admin' },
-  { to: '/users',         label: 'Users',          icon: '⚙️', adminOnly: true },
+  { to: '/users',         label: 'Users',          icon: '⚙️', module: 'users', adminOnly: true },
   { to: '/permissions',   label: 'Permissions',    icon: '🔐', adminOnly: true },
   { to: '/guide',         label: 'Guide',          icon: '📖' },
 ];
 
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuth();
+  const { canView, loading } = usePermissions();
+
+  // Track which sections have at least one visible item
+  const visibleModules = new Set();
+  nav.forEach(item => {
+    if (!item.to || !item.module) return;
+    if (item.adminOnly && !['ADMIN', 'CEO'].includes(user?.role)) return;
+    if (!item.adminOnly && !loading && !canView(item.module)) return;
+    visibleModules.add(item.section || '__none__');
+  });
+
+  let lastSection = null;
+
   return (
     <>
       {open && <div className="fixed inset-0 bg-black/30 z-20 lg:hidden" onClick={onClose} />}
@@ -57,21 +71,33 @@ export default function Sidebar({ open, onClose }) {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-2">
           {nav.map((item, i) => {
-            if (item.section) return (
-              <div key={i} className="px-3 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">{item.section}</div>
-            );
+            if (item.section) {
+              lastSection = item.section;
+              return null; // rendered below alongside items
+            }
+
             if (item.adminOnly && !['ADMIN', 'CEO'].includes(user?.role)) return null;
+            if (!item.adminOnly && item.module && !loading && !canView(item.module)) return null;
+
+            // Render section header before first visible item in each section
+            const sectionHeader = lastSection;
+            lastSection = null;
             return (
-              <NavLink key={item.to} to={item.to} end={item.to === '/'}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-0.5 transition-colors
-                  ${isActive ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`
-                }
-                onClick={onClose}
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </NavLink>
+              <div key={item.to}>
+                {sectionHeader && (
+                  <div className="px-3 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">{sectionHeader}</div>
+                )}
+                <NavLink to={item.to} end={item.to === '/'}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-0.5 transition-colors
+                    ${isActive ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'}`
+                  }
+                  onClick={onClose}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </NavLink>
+              </div>
             );
           })}
         </nav>

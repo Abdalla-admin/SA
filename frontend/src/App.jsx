@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DialogProvider } from './context/DialogContext';
-import { PermissionsProvider } from './context/PermissionsContext';
+import { PermissionsProvider, usePermissions } from './context/PermissionsContext';
 import Layout from './components/Layout';
 
 import Login        from './pages/Login';
@@ -36,6 +36,19 @@ function Guard({ children }) {
   return user ? children : <Navigate to="/login" replace />;
 }
 
+function PermGuard({ module, children }) {
+  const { user } = useAuth();
+  const { canView, loading } = usePermissions();
+  if (loading) return null;
+  if (user?.role === 'ADMIN' || canView(module)) return children;
+  return (
+    <div className="flex flex-col items-center justify-center py-32 text-center">
+      <div className="text-5xl mb-4">🔒</div>
+      <p className="text-gray-500 text-sm">You don't have permission to view this page.</p>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -45,27 +58,27 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Guard><Layout /></Guard>}>
-            <Route index          element={<Dashboard />} />
-            <Route path="leads"       element={<Leads />} />
-            <Route path="projects"    element={<Projects />} />
-            <Route path="customers"   element={<Customers />} />
-            <Route path="vendors"     element={<Vendors />} />
-            <Route path="employees"   element={<Employees />} />
-            <Route path="materials"   element={<Materials />} />
-            <Route path="purchases"   element={<Purchases />} />
-            <Route path="quotations"  element={<Quotations />} />
-            <Route path="contracts"   element={<Contracts />} />
-            <Route path="invoices"    element={<Invoices />} />
-            <Route path="payments"    element={<Payments />} />
-            <Route path="expenses"    element={<Expenses />} />
-            <Route path="bank-accounts" element={<BankAccounts />} />
-            <Route path="fund-transfers" element={<FundTransfers />} />
-            <Route path="warranty"    element={<Warranty />} />
-            <Route path="maintenance" element={<Maintenance />} />
-            <Route path="payroll"     element={<Payroll />} />
-            <Route path="attendance"  element={<Attendance />} />
-            <Route path="leave"       element={<Leave />} />
-            <Route path="reports"     element={<Reports />} />
+            <Route index             element={<PermGuard module="dashboard"><Dashboard /></PermGuard>} />
+            <Route path="leads"       element={<PermGuard module="leads"><Leads /></PermGuard>} />
+            <Route path="projects"    element={<PermGuard module="projects"><Projects /></PermGuard>} />
+            <Route path="customers"   element={<PermGuard module="customers"><Customers /></PermGuard>} />
+            <Route path="vendors"     element={<PermGuard module="vendors"><Vendors /></PermGuard>} />
+            <Route path="employees"   element={<PermGuard module="employees"><Employees /></PermGuard>} />
+            <Route path="materials"   element={<PermGuard module="materials"><Materials /></PermGuard>} />
+            <Route path="purchases"   element={<PermGuard module="purchases"><Purchases /></PermGuard>} />
+            <Route path="quotations"  element={<PermGuard module="quotations"><Quotations /></PermGuard>} />
+            <Route path="contracts"   element={<PermGuard module="contracts"><Contracts /></PermGuard>} />
+            <Route path="invoices"    element={<PermGuard module="invoices"><Invoices /></PermGuard>} />
+            <Route path="payments"    element={<PermGuard module="payments"><Payments /></PermGuard>} />
+            <Route path="expenses"    element={<PermGuard module="expenses"><Expenses /></PermGuard>} />
+            <Route path="bank-accounts"  element={<PermGuard module="bank_accounts"><BankAccounts /></PermGuard>} />
+            <Route path="fund-transfers" element={<PermGuard module="fund_transfers"><FundTransfers /></PermGuard>} />
+            <Route path="warranty"    element={<PermGuard module="warranty"><Warranty /></PermGuard>} />
+            <Route path="maintenance" element={<PermGuard module="maintenance"><Maintenance /></PermGuard>} />
+            <Route path="payroll"     element={<PermGuard module="payroll"><Payroll /></PermGuard>} />
+            <Route path="attendance"  element={<PermGuard module="attendance"><Attendance /></PermGuard>} />
+            <Route path="leave"       element={<PermGuard module="leave"><Leave /></PermGuard>} />
+            <Route path="reports"     element={<PermGuard module="reports"><Reports /></PermGuard>} />
             <Route path="users"       element={<Users />} />
             <Route path="permissions" element={<Permissions />} />
             <Route path="guide"       element={<Guide />} />
