@@ -49,10 +49,6 @@ export default function Login() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <div className="mt-6 text-xs text-gray-400 text-center space-y-1">
-          <div>Admin: admin@sunaratinga.com / admin123</div>
-          <div>CEO: ceo@sunaratinga.com / ceo123</div>
-        </div>
       </div>
     </div>
   );

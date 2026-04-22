@@ -123,9 +123,10 @@ export default function Guide() {
           title: 'Raise a purchase order',
           steps: [
             'Go to Inventory → Purchases → "+ New PO"',
-            'Select the vendor and add line items (material, quantity, unit cost)',
-            'The PO is created with ORDERED status',
+            'Select the vendor, choose the bank account to pay from, and add line items (material, quantity, unit cost)',
+            'The PO is created with PENDING status',
             'When materials arrive, click "Receive" — stock quantities are updated automatically',
+            'Receiving a PO deducts the total amount from the selected bank account and logs it as an expense',
           ],
         },
         {
@@ -275,7 +276,51 @@ export default function Guide() {
       ],
     },
     {
-      title: '9. Reports',
+      title: '9. User Permissions',
+      icon: '🔐',
+      color: 'bg-rose-50 border-rose-200',
+      headerColor: 'text-rose-700',
+      useCases: [
+        {
+          title: 'Configure access for a user',
+          steps: [
+            'Go to Admin → Permissions (visible to Admin and CEO only)',
+            'Select a user from the left sidebar',
+            'The permission matrix shows all modules grouped by section',
+            'Toggle individual checkboxes: View, Create, Edit, Delete, and Special*',
+            'Enabling any action automatically enables View; disabling View clears all other actions',
+            'Click "Save Permissions" — changes take effect immediately on next page load',
+          ],
+        },
+        {
+          title: 'Grant or revoke access in bulk',
+          steps: [
+            'Click "Grant All" on a group header to enable all permissions for every module in that section',
+            'Click "Revoke All" to remove all permissions for the group',
+            'Use the per-row "Grant" / "Revoke" button to toggle all actions for a single module',
+          ],
+        },
+        {
+          title: 'Special* actions',
+          steps: [
+            'The Special column covers module-specific power actions',
+            'Leads: Mark as Contracted — Projects: Add Snag / Test — Purchases: Receive Items',
+            'Quotations: Convert to Invoice — Invoices: Record Payment — Payroll: Run Payroll',
+            'Leave: Approve / Reject — Warranty: Create Warranty',
+            'The Special checkbox is greyed out for modules that have no special action',
+          ],
+        },
+        {
+          title: 'Admin accounts',
+          steps: [
+            'Admin accounts always have full access and are not listed in the Permissions page',
+            'Permissions are per individual user — changing one user does not affect others',
+          ],
+        },
+      ],
+    },
+    {
+      title: '10. Reports',
       icon: '📈',
       color: 'bg-gray-50 border-gray-200',
       headerColor: 'text-gray-700',
@@ -284,8 +329,11 @@ export default function Guide() {
           title: 'Profit & Loss overview',
           steps: [
             'Go to Reports → P&L tab',
-            'Shows total revenue (from paid invoices), total expenses, and net profit',
-            'Net profit is color-coded: blue for positive, red for negative',
+            'Shows a structured financial statement: Revenue → COGS → Gross Profit → Operating Expenses → Net Profit',
+            'Purchase expenses are automatically separated as Cost of Goods Sold (COGS)',
+            'Operating expenses are broken down by category (admin, HR, operations, etc.)',
+            'Net profit is color-coded: green for positive, red for negative',
+            'Summary cards at the top show Total Income, Total Expenses, and Net Profit at a glance',
           ],
         },
         {
