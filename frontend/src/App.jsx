@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DialogProvider } from './context/DialogContext';
+import { PermissionsProvider } from './context/PermissionsContext';
 import Layout from './components/Layout';
 
 import Login        from './pages/Login';
@@ -26,6 +27,7 @@ import Attendance   from './pages/Attendance';
 import Leave        from './pages/Leave';
 import Reports      from './pages/Reports';
 import Users        from './pages/Users';
+import Permissions  from './pages/Permissions';
 import Guide        from './pages/Guide';
 
 function Guard({ children }) {
@@ -37,6 +39,7 @@ function Guard({ children }) {
 export default function App() {
   return (
     <AuthProvider>
+      <PermissionsProvider>
       <DialogProvider>
       <BrowserRouter>
         <Routes>
@@ -64,11 +67,13 @@ export default function App() {
             <Route path="leave"       element={<Leave />} />
             <Route path="reports"     element={<Reports />} />
             <Route path="users"       element={<Users />} />
+            <Route path="permissions" element={<Permissions />} />
             <Route path="guide"       element={<Guide />} />
           </Route>
         </Routes>
       </BrowserRouter>
       </DialogProvider>
+      </PermissionsProvider>
     </AuthProvider>
   );
 }

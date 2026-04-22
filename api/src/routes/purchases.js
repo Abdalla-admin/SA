@@ -3,7 +3,8 @@ const prisma = require('../middleware/prisma');
 const { auth } = require('../middleware/auth');
 
 const include = {
-  vendor: { select: { id: true, name: true } },
+  vendor:      { select: { id: true, name: true } },
+  bankAccount: { select: { id: true, name: true } },
   items: { include: { material: { select: { id: true, name: true, unit: true } } } },
 };
 
@@ -28,16 +29,18 @@ router.post('/', auth, async (req, res) => {
 });
 
 router.put('/:id', auth, async (req, res) => {
-  const { items, ...data } = req.body;
+  const { id, items, vendor, bankAccount, createdAt, updatedAt, ...data } = req.body;
   const purchase = await prisma.purchase.update({ where: { id: +req.params.id }, data, include });
   res.json(purchase);
 });
 
-// Receive purchase order — increment material stock + record expense
+// Receive PO — increment stock + record expense + deduct bank account
 router.post('/:id/receive', auth, async (req, res) => {
   const purchase = await prisma.purchase.findUnique({ where: { id: +req.params.id }, include });
   if (!purchase) return res.status(404).json({ error: 'Not found' });
-  await prisma.$transaction([
+  if (purchase.status === 'RECEIVED') return res.status(400).json({ error: 'Already received' });
+
+  const ops = [
     prisma.purchase.update({ where: { id: purchase.id }, data: { status: 'RECEIVED', receivedAt: new Date() } }),
     ...purchase.items.map(item =>
       prisma.material.update({ where: { id: item.materialId }, data: { quantity: { increment: item.quantity } } })
@@ -48,9 +51,22 @@ router.post('/:id/receive', auth, async (req, res) => {
         category: 'purchase',
         amount: purchase.totalAmount,
         expenseDate: new Date(),
+        bankAccountId: purchase.bankAccountId || null,
       },
     }),
-  ]);
+  ];
+
+  // Deduct from bank account if one is selected
+  if (purchase.bankAccountId) {
+    ops.push(
+      prisma.bankAccount.update({
+        where: { id: purchase.bankAccountId },
+        data: { balance: { decrement: purchase.totalAmount } },
+      })
+    );
+  }
+
+  await prisma.$transaction(ops);
   res.json({ success: true });
 });
 

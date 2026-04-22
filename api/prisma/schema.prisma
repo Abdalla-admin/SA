@@ -97,8 +97,36 @@ model User {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  assignedLeads Lead[]         @relation("LeadCoordinator")
-  notifications Notification[]
+  assignedLeads   Lead[]           @relation("LeadCoordinator")
+  notifications   Notification[]
+  userPermissions UserPermission[]
+}
+
+model UserPermission {
+  id         Int     @id @default(autoincrement())
+  userId     Int
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module     String
+  canView    Boolean @default(false)
+  canCreate  Boolean @default(false)
+  canEdit    Boolean @default(false)
+  canDelete  Boolean @default(false)
+  canSpecial Boolean @default(false)
+
+  @@unique([userId, module])
+}
+
+model RolePermission {
+  id         Int     @id @default(autoincrement())
+  role       String
+  module     String
+  canView    Boolean @default(false)
+  canCreate  Boolean @default(false)
+  canEdit    Boolean @default(false)
+  canDelete  Boolean @default(false)
+  canSpecial Boolean @default(false)
+
+  @@unique([role, module])
 }
 
 model Customer {
@@ -313,15 +341,17 @@ model MaterialAllocation {
 }
 
 model Purchase {
-  id          Int            @id @default(autoincrement())
-  vendorId    Int?
-  vendor      Vendor?        @relation(fields: [vendorId], references: [id])
-  status      PurchaseStatus @default(PENDING)
-  orderDate   DateTime       @default(now())
-  receivedAt  DateTime?
-  totalAmount Float          @default(0)
-  notes       String?
-  createdAt   DateTime       @default(now())
+  id             Int            @id @default(autoincrement())
+  vendorId       Int?
+  vendor         Vendor?        @relation(fields: [vendorId], references: [id])
+  bankAccountId  Int?
+  bankAccount    BankAccount?   @relation(fields: [bankAccountId], references: [id])
+  status         PurchaseStatus @default(PENDING)
+  orderDate      DateTime       @default(now())
+  receivedAt     DateTime?
+  totalAmount    Float          @default(0)
+  notes          String?
+  createdAt      DateTime       @default(now())
 
   items PurchaseItem[]
 }
@@ -452,6 +482,7 @@ model BankAccount {
 
   payments      Payment[]
   expenses      Expense[]
+  purchases     Purchase[]
   transfersFrom FundTransfer[]   @relation("FromAccount")
   transfersTo   FundTransfer[]   @relation("ToAccount")
   transactions  BankTransaction[]

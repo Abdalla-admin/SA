@@ -42,11 +42,27 @@ function SummaryCard({ label, value, color = 'text-gray-900', bg = 'bg-white' })
 }
 
 // ─── P&L ────────────────────────────────────────────────────────────────────
+function PLRow({ label, value, bold, indent, section, positive, negative }) {
+  const isSection = section;
+  const color = positive ? 'text-green-700' : negative ? 'text-red-600' : 'text-gray-800';
+  return (
+    <tr className={`border-b border-gray-100 ${isSection ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
+      <td className={`px-4 py-2.5 text-sm ${bold||isSection ? 'font-bold text-gray-900' : 'text-gray-600'} ${indent ? 'pl-8' : ''}`}>
+        {label}
+      </td>
+      <td className={`px-4 py-2.5 text-sm text-right font-${bold||isSection?'bold':'medium'} ${color}`}>
+        {value !== null && value !== undefined ? fmt(value) : ''}
+      </td>
+    </tr>
+  );
+}
+
 function PLReport() {
   const [from, setFrom] = useState('');
   const [to, setTo]     = useState('');
   const [data, setData] = useState(null);
-  const [detail, setDetail] = useState(false);
+  const [showPayments, setShowPayments] = useState(false);
+  const [showExpenses, setShowExpenses] = useState(false);
 
   const load = async () => {
     const params = from && to ? `?from=${from}&to=${to}` : '';
@@ -56,63 +72,107 @@ function PLReport() {
 
   useEffect(() => { load(); }, []);
 
+  if (!data) return <div className="text-gray-400 text-sm py-8 text-center">Loading...</div>;
+
+  // Group expenses by category
+  const expByCategory = (data.expenses || []).reduce((acc, e) => {
+    const cat = e.category || 'Other';
+    acc[cat] = (acc[cat] || 0) + e.amount;
+    return acc;
+  }, {});
+  const purchaseCost = expByCategory['purchase'] || 0;
+  const opExpenses   = Object.entries(expByCategory).filter(([c]) => c !== 'purchase');
+  const opExpTotal   = opExpenses.reduce((s, [, v]) => s + v, 0);
+  const grossProfit  = data.totalRevenue - purchaseCost;
+  const netProfit    = grossProfit - opExpTotal;
+
   return (
     <div className="space-y-4">
       <DateFilter from={from} setFrom={setFrom} to={to} setTo={setTo} onGenerate={load} />
-      {data && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <SummaryCard label="Total Revenue"  value={fmt(data.totalRevenue)}  color="text-green-600" />
-            <SummaryCard label="Total Expenses" value={fmt(data.totalExpenses)} color="text-red-600" />
-            <SummaryCard label="Net Profit" value={fmt(data.netProfit)} color={data.netProfit>=0?'text-blue-600':'text-red-600'} bg={data.netProfit>=0?'bg-blue-50':'bg-red-50'} />
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <SummaryCard label="Total Income"   value={fmt(data.totalRevenue)}  color="text-green-600" />
+        <SummaryCard label="Total Expenses" value={fmt(data.totalExpenses)} color="text-red-600" />
+        <SummaryCard label="Net Profit"     value={fmt(netProfit)}          color={netProfit>=0?'text-blue-700':'text-red-600'} bg={netProfit>=0?'bg-blue-50':'bg-red-50'} />
+      </div>
+
+      {/* P&L Statement Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-4 py-3 border-b bg-gray-50 flex justify-between items-center">
+          <span className="font-semibold text-gray-800 text-sm">Profit & Loss Statement</span>
+          <span className="text-xs text-gray-400">{from && to ? `${from} → ${to}` : 'All time'}</span>
+        </div>
+        <table className="w-full">
+          <tbody>
+            <PLRow label="REVENUE" value={null} section bold />
+            <PLRow label="Sales Revenue (Payments Received)" value={data.totalRevenue} indent positive />
+            <PLRow label="GROSS REVENUE" value={data.totalRevenue} bold positive />
+
+            <PLRow label="COST OF GOODS SOLD" value={null} section bold />
+            <PLRow label="Purchase / Material Cost" value={purchaseCost} indent negative />
+            <PLRow label="GROSS PROFIT" value={grossProfit} bold positive={grossProfit>=0} negative={grossProfit<0} />
+
+            <PLRow label="OPERATING EXPENSES" value={null} section bold />
+            {opExpenses.map(([cat, amt]) => (
+              <PLRow key={cat} label={cat.charAt(0).toUpperCase()+cat.slice(1)} value={amt} indent negative />
+            ))}
+            {opExpenses.length === 0 && <PLRow label="No operating expenses" value={0} indent />}
+            <PLRow label="TOTAL OPERATING EXPENSES" value={opExpTotal} bold negative />
+
+            <PLRow label="NET PROFIT" value={netProfit} bold section positive={netProfit>=0} negative={netProfit<0} />
+          </tbody>
+        </table>
+      </div>
+
+      {/* Detailed drill-down */}
+      <div className="space-y-2">
+        <button onClick={()=>setShowPayments(v=>!v)} className="text-sm text-orange-600 hover:underline">
+          {showPayments ? '▲ Hide Revenue Detail' : '▼ Revenue Detail — Payments Received'}
+        </button>
+        {showPayments && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                <tr>{['Date','Customer','Method','Amount'].map(h=><th key={h} className="px-4 py-2 text-left">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {data.payments?.map(p => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-500">{fmtD(p.paidAt)}</td>
+                    <td className="px-4 py-2 font-medium">{p.invoice?.customer?.name||'—'}</td>
+                    <td className="px-4 py-2 text-gray-500 capitalize">{(p.method||'—').replace('_',' ')}</td>
+                    <td className="px-4 py-2 font-medium text-green-600">{fmt(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <button onClick={()=>setDetail(v=>!v)} className="text-sm text-orange-600 hover:underline">
-            {detail ? '▲ Hide Details' : '▼ Show Detailed Breakdown'}
-          </button>
-          {detail && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Payments */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-                <div className="px-4 py-3 bg-green-50 border-b border-gray-100 text-sm font-semibold text-green-700">Revenue — Payments Received ({data.payments?.length})</div>
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                    <tr>{['Date','Customer','Method','Amount'].map(h=><th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {data.payments?.map(p => (
-                      <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2">{fmtD(p.paidAt)}</td>
-                        <td className="px-3 py-2">{p.invoice?.customer?.name||'—'}</td>
-                        <td className="px-3 py-2 text-gray-500">{p.method||'—'}</td>
-                        <td className="px-3 py-2 font-medium text-green-600">{fmt(p.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {/* Expenses */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-                <div className="px-4 py-3 bg-red-50 border-b border-gray-100 text-sm font-semibold text-red-700">Expenses ({data.expenses?.length})</div>
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                    <tr>{['Date','Category','Description','Amount'].map(h=><th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {data.expenses?.map(e => (
-                      <tr key={e.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2">{fmtD(e.expenseDate)}</td>
-                        <td className="px-3 py-2"><span className="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-xs">{e.category||'—'}</span></td>
-                        <td className="px-3 py-2 text-gray-600">{e.description||'—'}</td>
-                        <td className="px-3 py-2 font-medium text-red-600">{fmt(e.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+        )}
+
+        <button onClick={()=>setShowExpenses(v=>!v)} className="text-sm text-orange-600 hover:underline">
+          {showExpenses ? '▲ Hide Expense Detail' : '▼ Expense Detail'}
+        </button>
+        {showExpenses && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                <tr>{['Date','Category','Description','Amount'].map(h=><th key={h} className="px-4 py-2 text-left">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {data.expenses?.map(e => (
+                  <tr key={e.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-500">{fmtD(e.expenseDate)}</td>
+                    <td className="px-4 py-2"><span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs capitalize">{e.category||'—'}</span></td>
+                    <td className="px-4 py-2 text-gray-600">{e.description||'—'}</td>
+                    <td className="px-4 py-2 font-medium text-red-600">{fmt(e.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

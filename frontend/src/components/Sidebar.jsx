@@ -34,6 +34,7 @@ const nav = [
   { to: '/reports',       label: 'Reports',        icon: '📈' },
   { section: 'Admin' },
   { to: '/users',         label: 'Users',          icon: '⚙️', adminOnly: true },
+  { to: '/permissions',   label: 'Permissions',    icon: '🔐', adminOnly: true },
   { to: '/guide',         label: 'Guide',          icon: '📖' },
 ];
 
