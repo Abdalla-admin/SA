@@ -19,13 +19,19 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 router.post('/', auth, async (req, res) => {
-  const { items, ...data } = req.body;
-  const total = items.reduce((s, i) => s + i.totalCost, 0);
-  const purchase = await prisma.purchase.create({
-    data: { ...data, totalAmount: total, items: { create: items } },
-    include,
-  });
-  res.status(201).json(purchase);
+  try {
+    const { items, ...data } = req.body;
+    if (!items || !items.length) return res.status(400).json({ error: 'At least one line item is required' });
+    const total = items.reduce((s, i) => s + (+i.totalCost || 0), 0);
+    const purchase = await prisma.purchase.create({
+      data: { ...data, totalAmount: total, items: { create: items } },
+      include,
+    });
+    res.status(201).json(purchase);
+  } catch (err) {
+    console.error('PO create error:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to create purchase order' });
+  }
 });
 
 router.put('/:id', auth, async (req, res) => {
