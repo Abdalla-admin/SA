@@ -1,17 +1,77 @@
 export default function Guide() {
   const sections = [
     {
-      title: '1. Lead Management',
-      icon: '🎯',
+      title: '1. Customers',
+      icon: '👤',
       color: 'bg-orange-50 border-orange-200',
       headerColor: 'text-orange-700',
+      useCases: [
+        {
+          title: 'Add a new customer',
+          steps: [
+            'Go to Contacts → Customers → click "+ New Customer"',
+            'Enter name, email, phone, address, site location, and registration date',
+            'Registration date records when the customer first engaged with Sun Aratinga',
+            'Add any notes relevant to this customer and click Save',
+          ],
+        },
+        {
+          title: 'Edit or delete a customer',
+          steps: [
+            'Click "Edit" on any customer row to update their details',
+            'Click "Delete" to remove a customer — this cannot be undone',
+            'Customers linked to active leads, projects, or invoices should not be deleted',
+          ],
+        },
+      ],
+    },
+    {
+      title: '2. Vendors',
+      icon: '🏪',
+      color: 'bg-amber-50 border-amber-200',
+      headerColor: 'text-amber-700',
+      useCases: [
+        {
+          title: 'Manage vendors',
+          steps: [
+            'Go to Contacts → Vendors → click "+ New Vendor"',
+            'Enter vendor name, email, phone, address, and category (e.g. panels, cables)',
+            'Vendors are linked to purchase orders — add them before raising POs',
+            'Use Edit or Delete on any vendor row to update or remove records',
+          ],
+        },
+      ],
+    },
+    {
+      title: '3. Employees',
+      icon: '👥',
+      color: 'bg-pink-50 border-pink-200',
+      headerColor: 'text-pink-700',
+      useCases: [
+        {
+          title: 'Manage employee records',
+          steps: [
+            'Go to Contacts → Employees → "+ Add Employee"',
+            'Enter name, position, department, salary, and join date',
+            'Toggle "Active" to deactivate employees without deleting their history',
+            'Employee records are used for payroll generation and attendance tracking',
+            'Use the Delete button to permanently remove an employee record',
+          ],
+        },
+      ],
+    },
+    {
+      title: '4. Lead Management',
+      icon: '🎯',
+      color: 'bg-yellow-50 border-yellow-200',
+      headerColor: 'text-yellow-700',
       useCases: [
         {
           title: 'Capture a new enquiry',
           steps: [
             'Go to Operations → Leads → click "+ New Lead"',
             'Select the customer (or create one under Contacts → Customers first)',
-            'Enter estimated system size (kW), lead value, and source (Referral, Website, Tender, etc.)',
+            'Enter estimated system size (kW), lead value, and site address',
             'Save — the lead starts at NEW status',
           ],
         },
@@ -22,20 +82,21 @@ export default function Guide() {
             'Status flow: NEW → CONTACTED → SITE_SURVEY → PROPOSAL → NEGOTIATION → CEO_APPROVED → CLIENT_APPROVED → CONVERTED',
             'CEO approval: change status to CEO_APPROVED after internal review',
             'Client acceptance: change to CLIENT_APPROVED once client signs off',
-            'Convert to project: once CLIENT_APPROVED, click "Convert to Project" to auto-create a project record',
+            'Convert to project: once CLIENT_APPROVED, click "Mark as Contracted → Create Project"',
           ],
         },
         {
           title: 'Reject or lose a lead',
           steps: [
-            'Edit the lead and set status to REJECTED (internal) or LOST (client declined)',
+            'Edit the lead and set status to LOST',
             'Add notes explaining the reason for future reference',
+            'Use the Delete button on the leads table to remove a lead entirely',
           ],
         },
       ],
     },
     {
-      title: '2. Projects',
+      title: '5. Projects',
       icon: '⚡',
       color: 'bg-blue-50 border-blue-200',
       headerColor: 'text-blue-700',
@@ -46,7 +107,8 @@ export default function Guide() {
             'Go to Operations → Projects → "+ New Project"',
             'Link to a customer, set system capacity (kW), budget, and target date',
             'Status stages: PLANNING → DESIGN → PROCUREMENT → EXECUTION → COMMISSIONING → COMPLETED',
-            'Use the progress slider to update completion percentage',
+            'Changing the status automatically updates the progress percentage',
+            'You can also drag the progress slider to fine-tune the percentage manually',
           ],
         },
         {
@@ -75,10 +137,18 @@ export default function Guide() {
             'All critical tests must PASS before marking a project COMPLETED',
           ],
         },
+        {
+          title: 'Add a warranty to a project',
+          steps: [
+            'When creating or editing a project, scroll to the Warranty section',
+            'Enter warranty start date, end date, and terms',
+            'The warranty record is automatically linked to the project',
+          ],
+        },
       ],
     },
     {
-      title: '3. Designs',
+      title: '6. Designs',
       icon: '📐',
       color: 'bg-indigo-50 border-indigo-200',
       headerColor: 'text-indigo-700',
@@ -105,25 +175,27 @@ export default function Guide() {
       ],
     },
     {
-      title: '4. Inventory & Purchases',
+      title: '7. Inventory & Purchases',
       icon: '🔧',
-      color: 'bg-yellow-50 border-yellow-200',
-      headerColor: 'text-yellow-700',
+      color: 'bg-lime-50 border-lime-200',
+      headerColor: 'text-lime-700',
       useCases: [
         {
           title: 'Add and manage materials',
           steps: [
             'Go to Inventory → Materials → "+ Add Material"',
             'Enter material name, category, unit, unit cost, and minimum stock level',
+            'To add a new category not in the list, click "+ New" next to the category dropdown',
             'Stock quantity updates automatically when purchase orders are received',
             'Materials highlighted in red are below minimum stock (low stock alert)',
+            'Use Edit or Delete on any row to update or remove a material',
           ],
         },
         {
           title: 'Raise a purchase order',
           steps: [
             'Go to Inventory → Purchases → "+ New PO"',
-            'Select the vendor, choose the bank account to pay from, and add line items (material, quantity, unit cost)',
+            'Select the vendor, choose the bank account to pay from, and add line items',
             'The PO is created with PENDING status',
             'When materials arrive, click "Receive" — stock quantities are updated automatically',
             'Receiving a PO deducts the total amount from the selected bank account and logs it as an expense',
@@ -139,7 +211,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '5. Sales & Finance',
+      title: '8. Sales & Finance',
       icon: '💼',
       color: 'bg-green-50 border-green-200',
       headerColor: 'text-green-700',
@@ -174,6 +246,16 @@ export default function Guide() {
           ],
         },
         {
+          title: 'Record payments directly',
+          steps: [
+            'Go to Finance → Payments → "+ Record Payment"',
+            'Select the customer — their unpaid invoices will appear in the dropdown',
+            'Selecting an invoice auto-fills the remaining balance as the payment amount',
+            'Choose payment method (Bank Transfer, Cash, Cheque, Card) and bank account',
+            'Add a reference number and notes as needed',
+          ],
+        },
+        {
           title: 'Track project expenses',
           steps: [
             'Go to Finance → Expenses → "+ Add Expense"',
@@ -184,7 +266,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '6. Banking',
+      title: '9. Banking',
       icon: '🏦',
       color: 'bg-teal-50 border-teal-200',
       headerColor: 'text-teal-700',
@@ -208,7 +290,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '7. Warranty & Maintenance',
+      title: '10. Warranty & Maintenance',
       icon: '🛡️',
       color: 'bg-purple-50 border-purple-200',
       headerColor: 'text-purple-700',
@@ -218,6 +300,7 @@ export default function Guide() {
           steps: [
             'Go to After-Sales → Warranty → "+ Add Warranty"',
             'Select the completed project, enter start date, end date, and warranty terms',
+            'Alternatively, add warranty details directly when creating or editing a project',
             'Warranties expiring within 30 days are highlighted in amber',
             'Expired warranties are automatically marked EXPIRED',
           ],
@@ -235,25 +318,25 @@ export default function Guide() {
       ],
     },
     {
-      title: '8. HR & Payroll',
-      icon: '👥',
-      color: 'bg-pink-50 border-pink-200',
-      headerColor: 'text-pink-700',
+      title: '11. HR & Payroll',
+      icon: '💰',
+      color: 'bg-rose-50 border-rose-200',
+      headerColor: 'text-rose-700',
       useCases: [
-        {
-          title: 'Manage employee records',
-          steps: [
-            'Go to Contacts → Employees → "+ Add Employee"',
-            'Enter name, position, department, salary, and join date',
-            'Employee records are used for payroll generation and attendance tracking',
-          ],
-        },
         {
           title: 'Record daily attendance',
           steps: [
             'Go to HR & Payroll → Attendance → "+ Mark Attendance"',
             'Select employee and date, set status (PRESENT, ABSENT, HALF_DAY, LEAVE)',
             'Attendance data feeds into payroll calculations',
+          ],
+        },
+        {
+          title: 'Manage leave requests',
+          steps: [
+            'Go to HR & Payroll → Leave → "+ New Leave"',
+            'Select employee, leave type, start and end dates',
+            'Approve or reject requests — approved leaves reflect in attendance',
           ],
         },
         {
@@ -265,62 +348,10 @@ export default function Guide() {
             'Individual payslips can be reviewed and adjusted before finalizing',
           ],
         },
-        {
-          title: 'Manage leave requests',
-          steps: [
-            'Go to HR & Payroll → Leave → "+ New Leave"',
-            'Select employee, leave type, start and end dates',
-            'Approve or reject requests — approved leaves reflect in attendance',
-          ],
-        },
       ],
     },
     {
-      title: '9. User Permissions',
-      icon: '🔐',
-      color: 'bg-rose-50 border-rose-200',
-      headerColor: 'text-rose-700',
-      useCases: [
-        {
-          title: 'Configure access for a user',
-          steps: [
-            'Go to Admin → Permissions (visible to Admin and CEO only)',
-            'Select a user from the left sidebar',
-            'The permission matrix shows all modules grouped by section',
-            'Toggle individual checkboxes: View, Create, Edit, Delete, and Special*',
-            'Enabling any action automatically enables View; disabling View clears all other actions',
-            'Click "Save Permissions" — changes take effect immediately on next page load',
-          ],
-        },
-        {
-          title: 'Grant or revoke access in bulk',
-          steps: [
-            'Click "Grant All" on a group header to enable all permissions for every module in that section',
-            'Click "Revoke All" to remove all permissions for the group',
-            'Use the per-row "Grant" / "Revoke" button to toggle all actions for a single module',
-          ],
-        },
-        {
-          title: 'Special* actions',
-          steps: [
-            'The Special column covers module-specific power actions',
-            'Leads: Mark as Contracted — Projects: Add Snag / Test — Purchases: Receive Items',
-            'Quotations: Convert to Invoice — Invoices: Record Payment — Payroll: Run Payroll',
-            'Leave: Approve / Reject — Warranty: Create Warranty',
-            'The Special checkbox is greyed out for modules that have no special action',
-          ],
-        },
-        {
-          title: 'Admin accounts',
-          steps: [
-            'Admin accounts always have full access and are not listed in the Permissions page',
-            'Permissions are per individual user — changing one user does not affect others',
-          ],
-        },
-      ],
-    },
-    {
-      title: '10. Reports',
+      title: '12. Reports',
       icon: '📈',
       color: 'bg-gray-50 border-gray-200',
       headerColor: 'text-gray-700',
@@ -366,6 +397,50 @@ export default function Guide() {
             'Go to Reports → Warranty tab',
             'Lists all warranties with status and number of maintenance requests',
             'Use to identify customers with frequent maintenance calls',
+          ],
+        },
+      ],
+    },
+    {
+      title: '13. User Permissions',
+      icon: '🔐',
+      color: 'bg-slate-50 border-slate-200',
+      headerColor: 'text-slate-700',
+      useCases: [
+        {
+          title: 'Configure access for a user',
+          steps: [
+            'Go to Admin → Permissions (visible to Admin and CEO only)',
+            'Select a user from the left sidebar',
+            'The permission matrix shows all modules grouped by section',
+            'Toggle individual checkboxes: View, Create, Edit, Delete, and Special*',
+            'Enabling any action automatically enables View; disabling View clears all other actions',
+            'Click "Save Permissions" — changes take effect immediately on next page load',
+          ],
+        },
+        {
+          title: 'Grant or revoke access in bulk',
+          steps: [
+            'Click "Grant All" on a group header to enable all permissions for every module in that section',
+            'Click "Revoke All" to remove all permissions for the group',
+            'Use the per-row "Grant" / "Revoke" button to toggle all actions for a single module',
+          ],
+        },
+        {
+          title: 'Special* actions',
+          steps: [
+            'The Special column covers module-specific power actions',
+            'Leads: Mark as Contracted — Projects: Add Snag / Test — Purchases: Receive Items',
+            'Quotations: Convert to Invoice — Invoices: Record Payment — Payroll: Run Payroll',
+            'Leave: Approve / Reject — Warranty: Create Warranty',
+            'The Special checkbox is greyed out for modules that have no special action',
+          ],
+        },
+        {
+          title: 'Admin accounts',
+          steps: [
+            'Admin accounts always have full access and are not listed in the Permissions page',
+            'Permissions are per individual user — changing one user does not affect others',
           ],
         },
       ],

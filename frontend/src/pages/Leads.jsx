@@ -6,7 +6,7 @@ import { useDialog } from '../context/DialogContext';
 
 const STATUSES = ['NEW','SURVEY_SCHEDULED','SURVEY_DONE','PROPOSAL_SENT','CEO_APPROVAL_PENDING','CEO_APPROVED','CLIENT_APPROVAL_PENDING','CLIENT_APPROVED','CONTRACTED','LOST'];
 
-const empty = { title:'', customerId:'', source:'', systemType:'', estimatedCapacity:'', siteAddress:'', coordinatorId:'', surveyDate:'', surveyNotes:'', requirementReport:'', proposalAmount:'', notes:'', status:'NEW' };
+const empty = { title:'', customerId:'', systemType:'', estimatedCapacity:'', siteAddress:'', coordinatorId:'', surveyDate:'', surveyNotes:'', requirementReport:'', proposalAmount:'', notes:'', status:'NEW' };
 
 export default function Leads() {
   const { confirm } = useDialog();
@@ -78,8 +78,8 @@ export default function Leads() {
                 <td className="px-4 py-3"><StatusBadge status={l.status} /></td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button onClick={() => openEdit(l)} className="text-blue-600 hover:underline text-xs">Edit</button>
-                    <button onClick={() => del(l.id)} className="text-red-500 hover:underline text-xs">Del</button>
+                    <button onClick={() => openEdit(l)} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
+                    <button onClick={() => del(l.id)} className="px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Delete</button>
                   </div>
                 </td>
               </tr>
@@ -95,7 +95,6 @@ export default function Leads() {
             {[
               ['Title', 'title', 'text', true],
               ['Site Address', 'siteAddress', 'text'],
-              ['Source', 'source', 'text'],
               ['Est. Capacity (kW)', 'estimatedCapacity', 'number'],
               ['Proposal Amount', 'proposalAmount', 'number'],
               ['Survey Date', 'surveyDate', 'date'],

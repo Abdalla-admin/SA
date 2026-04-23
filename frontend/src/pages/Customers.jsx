@@ -3,7 +3,7 @@ import client from '../api/client';
 import Modal from '../components/Modal';
 import { useDialog } from '../context/DialogContext';
 
-const empty = { name:'', email:'', phone:'', address:'', siteLocation:'', notes:'' };
+const empty = { name:'', email:'', phone:'', address:'', siteLocation:'', registrationDate:'', notes:'' };
 
 export default function Customers() {
   const { confirm } = useDialog();
@@ -15,11 +15,12 @@ export default function Customers() {
 
   const save = async e => {
     e.preventDefault();
+    const payload = { ...form, registrationDate: form.registrationDate || null };
     if (form.id) {
-      const { data } = await client.put(`/customers/${form.id}`, form);
+      const { data } = await client.put(`/customers/${form.id}`, payload);
       setItems(i => i.map(x => x.id === data.id ? data : x));
     } else {
-      const { data } = await client.post('/customers', form);
+      const { data } = await client.post('/customers', payload);
       setItems(i => [data, ...i]);
     }
     setModal(false);
@@ -40,7 +41,7 @@ export default function Customers() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>{['Name','Email','Phone','Site Location','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['Name','Email','Phone','Site Location','Registered','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {items.map(c=>(
@@ -49,9 +50,12 @@ export default function Customers() {
                 <td className="px-4 py-3 text-gray-500">{c.email||'—'}</td>
                 <td className="px-4 py-3">{c.phone||'—'}</td>
                 <td className="px-4 py-3">{c.siteLocation||'—'}</td>
-                <td className="px-4 py-3 flex gap-2">
-                  <button onClick={()=>{setForm(c);setModal(true);}} className="text-blue-600 hover:underline text-xs">Edit</button>
-                  <button onClick={()=>del(c.id)} className="text-red-500 hover:underline text-xs">Del</button>
+                <td className="px-4 py-3 text-gray-500">{c.registrationDate ? new Date(c.registrationDate).toLocaleDateString() : '—'}</td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    <button onClick={()=>{setForm({...c, registrationDate: c.registrationDate ? c.registrationDate.slice(0,10) : ''});setModal(true);}} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
+                    <button onClick={()=>del(c.id)} className="px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Delete</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -67,6 +71,10 @@ export default function Customers() {
                 <input type={t} required={!!req} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
               </div>
             ))}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Registration Date</label>
+              <input type="date" value={form.registrationDate||''} onChange={e=>setForm(f=>({...f,registrationDate:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+            </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
               <textarea value={form.notes||''} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={2} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>

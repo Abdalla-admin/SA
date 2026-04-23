@@ -5,6 +5,7 @@ import StatusBadge from '../components/StatusBadge';
 import { useDialog } from '../context/DialogContext';
 
 const STATUSES = ['PLANNING','DESIGN','PROCUREMENT','EXECUTION','COMMISSIONING','COMPLETED','ON_HOLD'];
+const STATUS_PROGRESS = { PLANNING:5, DESIGN:20, PROCUREMENT:40, EXECUTION:65, COMMISSIONING:85, COMPLETED:100, ON_HOLD:null };
 const empty = { name:'', customerId:'', systemCapacity:'', status:'PLANNING', budget:'', startDate:'', targetDate:'', progressPct:0, notes:'', warrantyStartDate:'', warrantyEndDate:'', warrantyTerms:'' };
 
 export default function Projects() {
@@ -132,7 +133,11 @@ export default function Projects() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-              <select value={form.status} onChange={e => setForm(f=>({...f,status:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+              <select value={form.status} onChange={e => {
+                const s = e.target.value;
+                const pct = STATUS_PROGRESS[s];
+                setForm(f => ({ ...f, status: s, ...(pct !== null ? { progressPct: pct } : {}) }));
+              }} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
                 {STATUSES.map(s=><option key={s}>{s}</option>)}
               </select>
             </div>

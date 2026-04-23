@@ -47,6 +47,7 @@ export default function Permissions() {
         modules.forEach(m => { filled[m.id] = r.data[m.id] || emptyPerm(); });
         setPerms(filled);
       })
+      .catch(err => setError(err.response?.data?.error || 'Failed to load permissions'))
       .finally(() => setLoading(false));
   }, [activeUser, modules]);
 

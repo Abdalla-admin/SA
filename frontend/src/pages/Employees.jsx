@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import client from '../api/client';
 import Modal from '../components/Modal';
+import { useDialog } from '../context/DialogContext';
 
 const empty = { name:'', email:'', phone:'', position:'', department:'', salary:0, joinDate:'', active:true };
 
 export default function Employees() {
+  const { confirm } = useDialog();
   const [items, setItems] = useState([]);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(empty);
@@ -22,6 +24,12 @@ export default function Employees() {
       setItems(i => [data, ...i]);
     }
     setModal(false);
+  };
+
+  const del = async id => {
+    if (!await confirm('Delete this employee? This action cannot be undone.')) return;
+    await client.delete(`/employees/${id}`);
+    setItems(i => i.filter(x => x.id !== id));
   };
 
   return (
@@ -43,7 +51,12 @@ export default function Employees() {
                 <td className="px-4 py-3 text-gray-500">{e.department||'—'}</td>
                 <td className="px-4 py-3">$ {e.salary?.toLocaleString()}</td>
                 <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs ${e.active?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}`}>{e.active?'Active':'Inactive'}</span></td>
-                <td className="px-4 py-3"><button onClick={()=>{setForm(e);setModal(true);}} className="text-blue-600 hover:underline text-xs">Edit</button></td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    <button onClick={()=>{setForm(e);setModal(true);}} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
+                    <button onClick={()=>del(e.id)} className="px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Delete</button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
