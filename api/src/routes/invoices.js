@@ -32,8 +32,17 @@ router.post('/', auth, async (req, res) => {
 });
 
 router.put('/:id', auth, async (req, res) => {
-  const { items, ...data } = req.body;
-  res.json(await prisma.invoice.update({ where: { id: +req.params.id }, data, include }));
+  const { id, items, customer, contract, payments, createdAt, ...data } = req.body;
+  const invoiceId = +req.params.id;
+  const [, invoice] = await prisma.$transaction([
+    prisma.invoiceItem.deleteMany({ where: { invoiceId } }),
+    prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { ...data, ...(items ? { items: { create: items.map(i => ({ description: i.description, quantity: +i.quantity, unitPrice: +i.unitPrice, total: +i.quantity * +i.unitPrice })) } } : {}) },
+      include,
+    }),
+  ]);
+  res.json(invoice);
 });
 
 router.delete('/:id', auth, async (req, res) => {

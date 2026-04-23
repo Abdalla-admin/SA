@@ -49,9 +49,11 @@ export default function Vendors() {
                 <td className="px-4 py-3"><span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs">{v.category||'—'}</span></td>
                 <td className="px-4 py-3 text-gray-500">{v.email||'—'}</td>
                 <td className="px-4 py-3">{v.phone||'—'}</td>
-                <td className="px-4 py-3 flex gap-2">
-                  <button onClick={()=>{setForm(v);setModal(true);}} className="text-blue-600 hover:underline text-xs">Edit</button>
-                  <button onClick={()=>del(v.id)} className="text-red-500 hover:underline text-xs">Del</button>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    <button onClick={()=>{setForm(v);setModal(true);}} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
+                    <button onClick={()=>del(v.id)} className="px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Delete</button>
+                  </div>
                 </td>
               </tr>
             ))}

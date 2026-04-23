@@ -36,6 +36,22 @@ export default function Invoices() {
     setForm(f => ({ ...f, items: its, subtotal: sub, total: sub + +f.tax }));
   };
 
+  const openEdit = async inv => {
+    const { data } = await client.get(`/invoices/${inv.id}`);
+    setForm({
+      id:         data.id,
+      customerId: data.customerId || '',
+      contractId: data.contractId || '',
+      dueDate:    data.dueDate ? data.dueDate.slice(0,10) : '',
+      subtotal:   data.subtotal,
+      tax:        data.tax,
+      total:      data.total,
+      notes:      data.notes || '',
+      items:      data.items?.length ? data.items.map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })) : [{ description:'', quantity:1, unitPrice:0 }],
+    });
+    setModal(true);
+  };
+
   const save = async e => {
     e.preventDefault();
     const payload = {
@@ -48,8 +64,13 @@ export default function Invoices() {
       notes:      form.notes || null,
       items: form.items.map(i => ({ description: i.description, quantity: +i.quantity, unitPrice: +i.unitPrice, total: +i.quantity * +i.unitPrice })),
     };
-    const { data } = await client.post('/invoices', payload);
-    setItems(i => [data, ...i]);
+    if (form.id) {
+      const { data } = await client.put(`/invoices/${form.id}`, payload);
+      setItems(i => i.map(x => x.id === data.id ? data : x));
+    } else {
+      const { data } = await client.post('/invoices', payload);
+      setItems(i => [data, ...i]);
+    }
     setModal(false);
   };
 
@@ -122,8 +143,9 @@ export default function Invoices() {
                   <td className="px-4 py-3"><StatusBadge status={inv.status}/></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button onClick={()=>openView(inv.id)} className="text-xs text-blue-600 hover:underline">View</button>
-                      {canPay && <button onClick={()=>openPay(inv)} className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full hover:bg-green-200">Pay</button>}
+                      <button onClick={()=>openView(inv.id)} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">View</button>
+                      <button onClick={()=>openEdit(inv)} className="px-3 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-medium">Edit</button>
+                      {canPay && <button onClick={()=>openPay(inv)} className="px-3 py-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium">Pay</button>}
                     </div>
                   </td>
                 </tr>
@@ -135,7 +157,7 @@ export default function Invoices() {
 
       {/* ── New Invoice Modal ── */}
       {modal && (
-        <Modal title="New Invoice" onClose={()=>setModal(false)} wide>
+        <Modal title={form.id ? 'Edit Invoice' : 'New Invoice'} onClose={()=>{setModal(false);setForm(emptyForm);}} wide>
           <form onSubmit={save} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -178,7 +200,7 @@ export default function Invoices() {
             </div>
             <div className="flex justify-end gap-3">
               <button type="button" onClick={()=>setModal(false)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
-              <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Create Invoice</button>
+              <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">{form.id ? 'Update Invoice' : 'Create Invoice'}</button>
             </div>
           </form>
         </Modal>
