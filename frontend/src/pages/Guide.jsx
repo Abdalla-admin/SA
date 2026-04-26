@@ -148,34 +148,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '6. Designs',
-      icon: '📐',
-      color: 'bg-indigo-50 border-indigo-200',
-      headerColor: 'text-indigo-700',
-      useCases: [
-        {
-          title: 'Submit a design for approval',
-          steps: [
-            'Go to Operations → Designs → "+ New Design"',
-            'Link to the project, enter title and version number',
-            'Upload file URL (PDF / CAD link from cloud storage)',
-            'Design starts at DRAFT status',
-          ],
-        },
-        {
-          title: 'Engineering approval workflow',
-          steps: [
-            'Engineering Manager reviews the design and clicks "Eng Approve"',
-            'Status moves to ENG_APPROVED',
-            'Click "Send to Client" to share with customer — status becomes SENT_TO_CLIENT',
-            'Once client confirms, click "Client Approve" — status becomes CLIENT_APPROVED',
-            'REJECTED designs must be revised and resubmitted with a new version number',
-          ],
-        },
-      ],
-    },
-    {
-      title: '7. Inventory & Purchases',
+      title: '6. Inventory & Purchases',
       icon: '🔧',
       color: 'bg-lime-50 border-lime-200',
       headerColor: 'text-lime-700',
@@ -211,7 +184,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '8. Sales & Finance',
+      title: '7. Sales & Finance',
       icon: '💼',
       color: 'bg-green-50 border-green-200',
       headerColor: 'text-green-700',
@@ -266,7 +239,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '9. Banking',
+      title: '8. Banking',
       icon: '🏦',
       color: 'bg-teal-50 border-teal-200',
       headerColor: 'text-teal-700',
@@ -290,7 +263,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '10. Warranty & Maintenance',
+      title: '9. Warranty & Maintenance',
       icon: '🛡️',
       color: 'bg-purple-50 border-purple-200',
       headerColor: 'text-purple-700',
@@ -318,7 +291,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '11. HR & Payroll',
+      title: '10. HR & Payroll',
       icon: '💰',
       color: 'bg-rose-50 border-rose-200',
       headerColor: 'text-rose-700',
@@ -351,7 +324,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '12. Reports',
+      title: '11. Reports',
       icon: '📈',
       color: 'bg-gray-50 border-gray-200',
       headerColor: 'text-gray-700',
@@ -402,7 +375,7 @@ export default function Guide() {
       ],
     },
     {
-      title: '13. User Permissions',
+      title: '12. User Permissions',
       icon: '🔐',
       color: 'bg-slate-50 border-slate-200',
       headerColor: 'text-slate-700',
