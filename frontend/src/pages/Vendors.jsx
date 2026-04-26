@@ -5,11 +5,19 @@ import { useDialog } from '../context/DialogContext';
 
 const empty = { name:'', email:'', phone:'', address:'', category:'', notes:'' };
 
+const Field = ({ label, value }) => (
+  <div>
+    <p className="text-xs text-gray-400">{label}</p>
+    <p className="text-sm font-medium mt-0.5">{value || '—'}</p>
+  </div>
+);
+
 export default function Vendors() {
   const { confirm } = useDialog();
-  const [items, setItems] = useState([]);
-  const [modal, setModal] = useState(false);
-  const [form, setForm] = useState(empty);
+  const [items, setItems]   = useState([]);
+  const [modal, setModal]   = useState(null); // 'form' | 'view' | null
+  const [form, setForm]     = useState(empty);
+  const [viewed, setViewed] = useState(null);
 
   useEffect(() => { client.get('/vendors').then(r => setItems(r.data)); }, []);
 
@@ -22,21 +30,23 @@ export default function Vendors() {
       const { data } = await client.post('/vendors', form);
       setItems(i => [data, ...i]);
     }
-    setModal(false);
+    setModal(null);
   };
 
   const del = async id => {
     if (!await confirm('Delete this vendor? This action cannot be undone.')) return;
     await client.delete(`/vendors/${id}`);
     setItems(i => i.filter(x => x.id !== id));
+    if (viewed?.id === id) setModal(null);
   };
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Vendors</h1>
-        <button onClick={() => { setForm(empty); setModal(true); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New Vendor</button>
+        <button onClick={() => { setForm(empty); setModal('form'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New Vendor</button>
       </div>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
@@ -51,7 +61,8 @@ export default function Vendors() {
                 <td className="px-4 py-3">{v.phone||'—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button onClick={()=>{setForm(v);setModal(true);}} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
+                    <button onClick={()=>{ setViewed(v); setModal('view'); }} className="px-3 py-1 rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 text-xs font-medium">View</button>
+                    <button onClick={()=>{ setForm(v); setModal('form'); }} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
                     <button onClick={()=>del(v.id)} className="px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Delete</button>
                   </div>
                 </td>
@@ -60,8 +71,33 @@ export default function Vendors() {
           </tbody>
         </table>
       </div>
-      {modal && (
-        <Modal title={form.id?'Edit Vendor':'New Vendor'} onClose={()=>setModal(false)}>
+
+      {/* View Modal */}
+      {modal === 'view' && viewed && (
+        <Modal title={viewed.name} onClose={()=>setModal(null)}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Item Description" value={viewed.category} />
+              <Field label="Email"            value={viewed.email} />
+              <Field label="Phone"            value={viewed.phone} />
+              <Field label="Address"          value={viewed.address} />
+              {viewed.notes && (
+                <div className="col-span-2">
+                  <Field label="Notes" value={viewed.notes} />
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <button onClick={()=>{ setForm(viewed); setModal('form'); }} className="px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm font-medium">Edit</button>
+              <button onClick={()=>del(viewed.id)} className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium">Delete</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Form Modal */}
+      {modal === 'form' && (
+        <Modal title={form.id?'Edit Vendor':'New Vendor'} onClose={()=>setModal(null)}>
           <form onSubmit={save} className="space-y-3">
             {[['Name','name','text',true],['Item Description','category','text'],['Email','email','email'],['Phone','phone','tel'],['Address','address','text']].map(([l,k,t,req])=>(
               <div key={k}>
@@ -70,7 +106,7 @@ export default function Vendors() {
               </div>
             ))}
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={()=>setModal(false)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
+              <button type="button" onClick={()=>setModal(null)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
               <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Save</button>
             </div>
           </form>
