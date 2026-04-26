@@ -25,9 +25,28 @@ router.post('/', auth, async (req, res) => {
 });
 
 router.put('/:id', auth, async (req, res) => {
-  const { items, ...data } = req.body;
-  const quotation = await prisma.quotation.update({ where: { id: +req.params.id }, data, include });
-  res.json(quotation);
+  const { id, items, customer, invoice, createdAt, ...data } = req.body;
+  const qid = +req.params.id;
+  if (items) {
+    const [, quotation] = await prisma.$transaction([
+      prisma.quotationItem.deleteMany({ where: { quotationId: qid } }),
+      prisma.quotation.update({
+        where: { id: qid },
+        data: { ...data, items: { create: items.map(i => ({ description: i.description, quantity: +i.quantity, unitPrice: +i.unitPrice, total: +i.quantity * +i.unitPrice })) } },
+        include,
+      }),
+    ]);
+    return res.json(quotation);
+  }
+  res.json(await prisma.quotation.update({ where: { id: qid }, data, include }));
+});
+
+router.delete('/:id', auth, async (req, res) => {
+  const q = await prisma.quotation.findUnique({ where: { id: +req.params.id } });
+  if (!q) return res.status(404).json({ error: 'Not found' });
+  if (q.status === 'CONVERTED') return res.status(400).json({ error: 'Cannot delete a converted quotation' });
+  await prisma.quotation.delete({ where: { id: +req.params.id } });
+  res.json({ success: true });
 });
 
 router.post('/:id/convert', auth, async (req, res) => {

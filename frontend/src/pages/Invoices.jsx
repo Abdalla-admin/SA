@@ -23,6 +23,26 @@ export default function Invoices() {
     client.get(`/invoices${params}`).then(r => setItems(r.data));
   };
 
+  const voidInvoice = async inv => {
+    const { data } = await client.patch(`/invoices/${inv.id}/void`);
+    setItems(i => i.map(x => x.id === data.id ? data : x));
+    if (viewModal?.id === inv.id) setViewModal(data);
+  };
+
+  const printInvoice = (inv) => {
+    const rows = (inv.items||[]).map(i => `<tr><td>${i.description}</td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">$ ${(+i.unitPrice).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td style="text-align:right">$ ${(+(i.total||i.quantity*i.unitPrice)).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`).join('');
+    const w = window.open('','_blank','width=800,height=600');
+    w.document.write(`<!DOCTYPE html><html><head><title>INV-${String(inv.id).padStart(4,'0')}</title>
+    <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}h2{color:#ea580c}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:#f9fafb;text-align:left;padding:8px 10px;font-size:12px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb}td{padding:10px;border-bottom:1px solid #f3f4f6;font-size:13px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-size:13px}.totals{text-align:right;margin-top:8px}.totals p{margin:4px 0;font-size:13px}.totals .grand{font-size:16px;font-weight:bold;color:#ea580c}@page{margin:20mm}</style>
+    </head><body>
+    <h2>Invoice INV-${String(inv.id).padStart(4,'0')}</h2>
+    <div class="meta"><div><strong>Customer:</strong> ${inv.customer?.name||'—'}</div><div><strong>Status:</strong> ${inv.status||'—'}</div><div><strong>Issue Date:</strong> ${inv.issueDate?new Date(inv.issueDate).toLocaleDateString():'—'}</div><div><strong>Due Date:</strong> ${inv.dueDate?new Date(inv.dueDate).toLocaleDateString():'—'}</div></div>
+    <table><thead><tr><th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="totals"><p>Subtotal: $ ${(+inv.subtotal).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p>Tax: $ ${(+inv.tax).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p class="grand">Total: $ ${(+inv.total).toLocaleString('en-US',{minimumFractionDigits:2})}</p></div>
+    <script>window.print();<\/script></body></html>`);
+    w.document.close();
+  };
+
   useEffect(() => {
     load();
     client.get('/customers').then(r => setCustomers(r.data));
@@ -142,10 +162,11 @@ export default function Invoices() {
                   </td>
                   <td className="px-4 py-3"><StatusBadge status={inv.status}/></td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <button onClick={()=>openView(inv.id)} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">View</button>
                       <button onClick={()=>openEdit(inv)} className="px-3 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-medium">Edit</button>
                       {canPay && <button onClick={()=>openPay(inv)} className="px-3 py-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium">Pay</button>}
+                      {(inv.status==='UNPAID'||inv.status==='PARTIAL'||inv.status==='OVERDUE') && <button onClick={()=>voidInvoice(inv)} className="px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Void</button>}
                     </div>
                   </td>
                 </tr>
@@ -209,6 +230,7 @@ export default function Invoices() {
       {/* ── View Invoice Modal ── */}
       {viewModal && (
         <Modal title={`Invoice INV-${String(viewModal.id).padStart(4,'0')}`} onClose={()=>setViewModal(null)} wide>
+
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div><span className="text-gray-500">Customer: </span><strong>{viewModal.customer?.name}</strong></div>
@@ -252,6 +274,10 @@ export default function Invoices() {
                 })()}
               </tfoot>
             </table>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <button onClick={()=>printInvoice(viewModal)} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-medium">🖨 Print</button>
+              {(viewModal.status==='UNPAID'||viewModal.status==='PARTIAL'||viewModal.status==='OVERDUE') && <button onClick={()=>voidInvoice(viewModal)} className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium">Void</button>}
+            </div>
           </div>
         </Modal>
       )}

@@ -45,6 +45,11 @@ router.put('/:id', auth, async (req, res) => {
   res.json(invoice);
 });
 
+router.patch('/:id/void', auth, async (req, res) => {
+  const invoice = await prisma.invoice.update({ where: { id: +req.params.id }, data: { status: 'CANCELLED' }, include });
+  res.json(invoice);
+});
+
 router.delete('/:id', auth, async (req, res) => {
   await prisma.invoice.delete({ where: { id: +req.params.id } });
   res.json({ success: true });

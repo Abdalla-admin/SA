@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import client from '../api/client';
 import Modal from '../components/Modal';
+import { useDialog } from '../context/DialogContext';
 
 const empty = { name:'', bankName:'', accountNumber:'', balance:0, currency:'USD' };
 const fmt = n => '$ ' + (+n||0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
 export default function BankAccounts() {
+  const { confirm } = useDialog();
   const [items, setItems]     = useState([]);
   const [modal, setModal]     = useState(false);
   const [txModal, setTxModal] = useState(null);
   const [form, setForm]       = useState(empty);
+  const [delError, setDelError] = useState('');
 
   useEffect(() => { client.get('/bank-accounts').then(r => setItems(r.data)); }, []);
 
@@ -26,6 +29,17 @@ export default function BankAccounts() {
     setModal(false);
   };
 
+  const del = async id => {
+    setDelError('');
+    if (!await confirm('Delete this bank account? This cannot be undone.')) return;
+    try {
+      await client.delete(`/bank-accounts/${id}`);
+      setItems(i => i.filter(x => x.id !== id));
+    } catch (err) {
+      setDelError(err.response?.data?.error || 'Failed to delete account');
+    }
+  };
+
   const openTx = async (a) => {
     const { data } = await client.get(`/bank-accounts/${a.id}`);
     setTxModal(data);
@@ -33,7 +47,6 @@ export default function BankAccounts() {
 
   const total = items.reduce((s,a) => s + a.balance, 0);
 
-  // Build unified transaction ledger from account detail
   const buildLedger = (acc) => {
     const rows = [];
     (acc.payments || []).forEach(p => rows.push({
@@ -77,6 +90,8 @@ export default function BankAccounts() {
         <button onClick={()=>{setForm(empty);setModal(true);}} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Add Account</button>
       </div>
 
+      {delError && <div className="bg-red-50 text-red-700 text-sm px-4 py-2 rounded-lg border border-red-200">{delError}</div>}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {items.map(a => (
           <div key={a.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
@@ -88,9 +103,10 @@ export default function BankAccounts() {
               <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{a.currency}</span>
             </div>
             <p className="text-2xl font-bold text-gray-900">{a.currency} {(+a.balance).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</p>
-            <div className="flex gap-3 mt-3">
-              <button onClick={()=>{setForm(a);setModal(true);}} className="text-xs text-blue-600 hover:underline">Edit</button>
-              <button onClick={()=>openTx(a)} className="text-xs text-orange-600 hover:underline">View Transactions</button>
+            <div className="flex gap-2 mt-3">
+              <button onClick={()=>{setForm(a);setModal(true);}} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
+              <button onClick={()=>openTx(a)} className="px-3 py-1 rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 text-xs font-medium">Transactions</button>
+              <button onClick={()=>del(a.id)} className="px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Delete</button>
             </div>
           </div>
         ))}

@@ -38,4 +38,11 @@ router.put('/:id', auth, async (req, res) => {
   res.json(await prisma.bankAccount.update({ where: { id: +req.params.id }, data }));
 });
 
+router.delete('/:id', auth, async (req, res) => {
+  const payCount = await prisma.payment.count({ where: { bankAccountId: +req.params.id } });
+  if (payCount > 0) return res.status(400).json({ error: 'Cannot delete: account has linked payments. Remove payments first.' });
+  await prisma.bankAccount.delete({ where: { id: +req.params.id } });
+  res.json({ success: true });
+});
+
 module.exports = router;

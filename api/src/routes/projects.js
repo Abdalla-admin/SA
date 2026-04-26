@@ -26,14 +26,14 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 router.post('/', auth, async (req, res) => {
-  const { milestones, warrantyStartDate, warrantyEndDate, warrantyTerms, ...data } = req.body;
+  const { milestones, warrantyStartDate, warrantyEndDate, warrantyTerms, warrantyMaintenancePeriod, ...data } = req.body;
   const project = await prisma.project.create({
     data: { ...data, milestones: milestones ? { create: milestones } : undefined },
     include,
   });
   if (warrantyStartDate && warrantyEndDate) {
     await prisma.warranty.create({
-      data: { projectId: project.id, startDate: new Date(warrantyStartDate), endDate: new Date(warrantyEndDate), terms: warrantyTerms || null },
+      data: { projectId: project.id, startDate: new Date(warrantyStartDate), endDate: new Date(warrantyEndDate), terms: warrantyTerms || null, maintenancePeriod: warrantyMaintenancePeriod || null },
     });
     const refreshed = await prisma.project.findUnique({ where: { id: project.id }, include });
     return res.status(201).json(refreshed);
@@ -42,13 +42,13 @@ router.post('/', auth, async (req, res) => {
 });
 
 router.put('/:id', auth, async (req, res) => {
-  const { id, milestones, customer, lead, contract, design, snagItems, commissioningTests, warranty, materialAllocations, createdAt, updatedAt, warrantyStartDate, warrantyEndDate, warrantyTerms, ...data } = req.body;
+  const { id, milestones, customer, lead, contract, design, snagItems, commissioningTests, warranty, materialAllocations, createdAt, updatedAt, warrantyStartDate, warrantyEndDate, warrantyTerms, warrantyMaintenancePeriod, ...data } = req.body;
   const project = await prisma.project.update({ where: { id: +req.params.id }, data, include });
   if (warrantyStartDate && warrantyEndDate) {
     await prisma.warranty.upsert({
       where: { projectId: +req.params.id },
-      update: { startDate: new Date(warrantyStartDate), endDate: new Date(warrantyEndDate), terms: warrantyTerms || null },
-      create: { projectId: +req.params.id, startDate: new Date(warrantyStartDate), endDate: new Date(warrantyEndDate), terms: warrantyTerms || null },
+      update: { startDate: new Date(warrantyStartDate), endDate: new Date(warrantyEndDate), terms: warrantyTerms || null, maintenancePeriod: warrantyMaintenancePeriod || null },
+      create: { projectId: +req.params.id, startDate: new Date(warrantyStartDate), endDate: new Date(warrantyEndDate), terms: warrantyTerms || null, maintenancePeriod: warrantyMaintenancePeriod || null },
     });
     const refreshed = await prisma.project.findUnique({ where: { id: +req.params.id }, include });
     return res.json(refreshed);

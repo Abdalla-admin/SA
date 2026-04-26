@@ -184,6 +184,7 @@ model Lead {
   customer          Customer?  @relation(fields: [customerId], references: [id])
   source            String?
   systemType        String?
+  structureType     String?
   estimatedCapacity Float?
   siteAddress       String?
   status            LeadStatus @default(NEW)
@@ -287,14 +288,15 @@ model CommissioningTest {
 }
 
 model Warranty {
-  id        Int      @id @default(autoincrement())
-  projectId Int      @unique
-  project   Project  @relation(fields: [projectId], references: [id])
-  startDate DateTime
-  endDate   DateTime
-  terms     String?
-  status    String   @default("ACTIVE")
-  createdAt DateTime @default(now())
+  id                Int      @id @default(autoincrement())
+  projectId         Int      @unique
+  project           Project  @relation(fields: [projectId], references: [id])
+  startDate         DateTime
+  endDate           DateTime
+  terms             String?
+  maintenancePeriod String?
+  status            String   @default("ACTIVE")
+  createdAt         DateTime @default(now())
 
   maintenanceRequests MaintenanceRequest[]
 }

@@ -5,8 +5,9 @@ import StatusBadge from '../components/StatusBadge';
 import { useDialog } from '../context/DialogContext';
 
 const STATUSES = ['NEW','SURVEY_SCHEDULED','SURVEY_DONE','PROPOSAL_SENT','CEO_APPROVAL_PENDING','CEO_APPROVED','CLIENT_APPROVAL_PENDING','CLIENT_APPROVED','CONTRACTED','LOST'];
+const STRUCTURE_TYPES = ['Rooftop Structure','Ground Structure','Roof Ground Structure'];
 
-const empty = { title:'', customerId:'', systemType:'', estimatedCapacity:'', siteAddress:'', coordinatorId:'', surveyDate:'', surveyNotes:'', requirementReport:'', proposalAmount:'', notes:'', status:'NEW' };
+const empty = { title:'', customerId:'', systemType:'', structureType:'', estimatedCapacity:'', siteAddress:'', coordinatorId:'', surveyDate:'', requirementReport:'', proposalAmount:'', notes:'', status:'NEW' };
 
 export default function Leads() {
   const { confirm } = useDialog();
@@ -43,9 +44,10 @@ export default function Leads() {
   };
 
   const del = async id => {
-    if (!await confirm('Delete this lead? This action cannot be undone.')) return;
+    if (!await confirm('Delete this site assessment? This action cannot be undone.')) return;
     await client.delete(`/leads/${id}`);
     setLeads(l => l.filter(x => x.id !== id));
+    if (modal === 'detail') setModal(null);
   };
 
   const openEdit = lead => { setForm(lead); setModal('form'); };
@@ -54,15 +56,15 @@ export default function Leads() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-        <button onClick={openNew} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New Lead</button>
+        <h1 className="text-2xl font-bold text-gray-900">Site Assessments</h1>
+        <button onClick={openNew} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New Site Assessment</button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>
-              {['Title','Customer','System Type','Capacity (kW)','Coordinator','Status','Actions'].map(h => (
+              {['Project','Customer','System Type','Structure Type','Capacity (kW)','Coordinator','Status','Actions'].map(h => (
                 <th key={h} className="px-4 py-3 text-left">{h}</th>
               ))}
             </tr>
@@ -73,6 +75,7 @@ export default function Leads() {
                 <td className="px-4 py-3 font-medium cursor-pointer text-orange-600 hover:underline" onClick={() => { setDetail(l); setModal('detail'); }}>{l.title}</td>
                 <td className="px-4 py-3 text-gray-600">{l.customer?.name || '—'}</td>
                 <td className="px-4 py-3">{l.systemType || '—'}</td>
+                <td className="px-4 py-3 text-gray-500">{l.structureType || '—'}</td>
                 <td className="px-4 py-3">{l.estimatedCapacity || '—'}</td>
                 <td className="px-4 py-3">{l.coordinator?.name || '—'}</td>
                 <td className="px-4 py-3"><StatusBadge status={l.status} /></td>
@@ -90,10 +93,10 @@ export default function Leads() {
 
       {/* Form Modal */}
       {modal === 'form' && (
-        <Modal title={form.id ? 'Edit Lead' : 'New Lead'} onClose={() => setModal(null)} wide>
+        <Modal title={form.id ? 'Edit Site Assessment' : 'New Site Assessment'} onClose={() => setModal(null)} wide>
           <form onSubmit={save} className="grid grid-cols-2 gap-4">
             {[
-              ['Title', 'title', 'text', true],
+              ['Project', 'title', 'text', true],
               ['Site Address', 'siteAddress', 'text'],
               ['Est. Capacity (kW)', 'estimatedCapacity', 'number'],
               ['Proposal Amount', 'proposalAmount', 'number'],
@@ -127,14 +130,17 @@ export default function Leads() {
               </select>
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Structure Type</label>
+              <select value={form.structureType || ''} onChange={e => setForm(f => ({ ...f, structureType: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                <option value="">Select structure</option>
+                {STRUCTURE_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
               <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
                 {STATUSES.map(s => <option key={s}>{s}</option>)}
               </select>
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Survey Notes</label>
-              <textarea value={form.surveyNotes || ''} onChange={e => setForm(f => ({ ...f, surveyNotes: e.target.value }))} rows={2} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
@@ -153,7 +159,7 @@ export default function Leads() {
         <Modal title={detail.title} onClose={() => setModal(null)} wide>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 text-sm">
-              {[['Customer', detail.customer?.name], ['Status', null], ['System Type', detail.systemType], ['Capacity', detail.estimatedCapacity ? `${detail.estimatedCapacity} kW` : null], ['Site', detail.siteAddress], ['Coordinator', detail.coordinator?.name], ['Survey Date', detail.surveyDate ? new Date(detail.surveyDate).toLocaleDateString() : null], ['Proposal', detail.proposalAmount ? `$ ${detail.proposalAmount?.toLocaleString()}` : null]].map(([k, v]) => (
+              {[['Customer', detail.customer?.name], ['Status', null], ['System Type', detail.systemType], ['Structure Type', detail.structureType], ['Capacity', detail.estimatedCapacity ? `${detail.estimatedCapacity} kW` : null], ['Site', detail.siteAddress], ['Coordinator', detail.coordinator?.name], ['Survey Date', detail.surveyDate ? new Date(detail.surveyDate).toLocaleDateString() : null], ['Proposal', detail.proposalAmount ? `$ ${detail.proposalAmount?.toLocaleString()}` : null]].map(([k, v]) => (
                 <div key={k}>
                   <span className="text-gray-400 text-xs">{k}</span>
                   <div className="font-medium mt-0.5">{k === 'Status' ? <StatusBadge status={detail.status} /> : v || '—'}</div>
@@ -162,7 +168,6 @@ export default function Leads() {
             </div>
             {detail.surveyNotes && <div><p className="text-xs text-gray-400">Survey Notes</p><p className="text-sm mt-1">{detail.surveyNotes}</p></div>}
             {detail.notes && <div><p className="text-xs text-gray-400">Notes</p><p className="text-sm mt-1">{detail.notes}</p></div>}
-            {/* Approval actions */}
             <div className="flex flex-wrap gap-2 pt-3 border-t">
               {detail.status === 'CEO_APPROVAL_PENDING' && (
                 <>
@@ -174,6 +179,7 @@ export default function Leads() {
                 <button onClick={() => approve(detail.id, 'client-approve')} className="bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm">✓ Mark as Contracted → Create Project</button>
               )}
               <button onClick={() => { openEdit(detail); }} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm">Edit</button>
+              <button onClick={() => del(detail.id)} className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium">Delete</button>
             </div>
             {detail.project && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm flex items-center justify-between">

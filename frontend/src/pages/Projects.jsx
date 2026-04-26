@@ -6,7 +6,7 @@ import { useDialog } from '../context/DialogContext';
 
 const STATUSES = ['PLANNING','DESIGN','PROCUREMENT','EXECUTION','COMMISSIONING','COMPLETED','ON_HOLD'];
 const STATUS_PROGRESS = { PLANNING:5, DESIGN:20, PROCUREMENT:40, EXECUTION:65, COMMISSIONING:85, COMPLETED:100, ON_HOLD:null };
-const empty = { name:'', customerId:'', systemCapacity:'', status:'PLANNING', budget:'', startDate:'', targetDate:'', progressPct:0, notes:'', warrantyStartDate:'', warrantyEndDate:'', warrantyTerms:'' };
+const empty = { name:'', customerId:'', systemCapacity:'', status:'PLANNING', budget:'', startDate:'', targetDate:'', progressPct:0, notes:'', warrantyStartDate:'', warrantyEndDate:'', warrantyTerms:'', warrantyMaintenancePeriod:'' };
 
 export default function Projects() {
   const { prompt } = useDialog();
@@ -36,6 +36,7 @@ export default function Projects() {
       warrantyStartDate: form.warrantyStartDate || null,
       warrantyEndDate: form.warrantyEndDate || null,
       warrantyTerms: form.warrantyTerms || null,
+      warrantyMaintenancePeriod: form.warrantyMaintenancePeriod || null,
     };
     if (form.id) {
       const { data } = await client.put(`/projects/${form.id}`, payload);
@@ -50,34 +51,6 @@ export default function Projects() {
   const openDetail = async (p) => {
     const { data } = await client.get(`/projects/${p.id}`);
     setSelected(data); setModal('detail');
-  };
-
-  const updateSnag = async (pid, sid, status) => {
-    await client.put(`/projects/${pid}/snags/${sid}`, { status, resolvedAt: status === 'RESOLVED' ? new Date() : null });
-    const { data } = await client.get(`/projects/${pid}`);
-    setSelected(data);
-  };
-
-  const updateTest = async (pid, tid, result) => {
-    await client.put(`/projects/${pid}/tests/${tid}`, { result, testedAt: new Date() });
-    const { data } = await client.get(`/projects/${pid}`);
-    setSelected(data);
-  };
-
-  const addSnag = async (pid) => {
-    const desc = await prompt('Enter snag description:', { title: 'Add Snag Item' });
-    if (!desc) return;
-    await client.post(`/projects/${pid}/snags`, { description: desc });
-    const { data } = await client.get(`/projects/${pid}`);
-    setSelected(data);
-  };
-
-  const addTest = async (pid) => {
-    const name = await prompt('Enter test name:', { title: 'Add Commissioning Test' });
-    if (!name) return;
-    await client.post(`/projects/${pid}/tests`, { testName: name });
-    const { data } = await client.get(`/projects/${pid}`);
-    setSelected(data);
   };
 
   return (
@@ -160,8 +133,12 @@ export default function Projects() {
                   <label className="block text-xs font-medium text-gray-600 mb-1">Warranty End Date</label>
                   <input type="date" value={form.warrantyEndDate||''} onChange={e=>setForm(f=>({...f,warrantyEndDate:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Maintenance Period</label>
+                  <input type="text" placeholder="e.g. 2 years" value={form.warrantyMaintenancePeriod||''} onChange={e=>setForm(f=>({...f,warrantyMaintenancePeriod:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
+                </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Warranty Terms</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Warranty Notes</label>
                   <textarea value={form.warrantyTerms||''} onChange={e=>setForm(f=>({...f,warrantyTerms:e.target.value}))} rows={2} placeholder="e.g. 5-year comprehensive warranty..." className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
                 </div>
               </div>
@@ -187,13 +164,11 @@ export default function Projects() {
             {/* Lead Info */}
             {selected.lead && (
               <div className="bg-orange-50 rounded-lg p-4 text-sm">
-                <h4 className="font-semibold text-orange-800 mb-2">🎯 Lead: {selected.lead.title}</h4>
+                <h4 className="font-semibold text-orange-800 mb-2">🎯 Site Assessment: {selected.lead.title}</h4>
                 <div className="grid grid-cols-2 gap-2 text-gray-700">
-                  {selected.lead.source && <div><span className="text-xs text-gray-400 block">Source</span>{selected.lead.source}</div>}
                   {selected.lead.estimatedCapacity && <div><span className="text-xs text-gray-400 block">Est. Capacity</span>{selected.lead.estimatedCapacity} kW</div>}
                   {selected.lead.proposalAmount && <div><span className="text-xs text-gray-400 block">Proposal Amount</span>$ {(+selected.lead.proposalAmount).toLocaleString()}</div>}
                   {selected.lead.status && <div><span className="text-xs text-gray-400 block">Lead Status</span><StatusBadge status={selected.lead.status} /></div>}
-                  {selected.lead.surveyNotes && <div className="col-span-2"><span className="text-xs text-gray-400 block">Survey Notes</span>{selected.lead.surveyNotes}</div>}
                 </div>
               </div>
             )}
@@ -213,59 +188,16 @@ export default function Projects() {
               </div>
             )}
 
-            {/* Milestones */}
-            <div>
-              <h4 className="font-semibold text-sm mb-2">Milestones</h4>
-              {selected.milestones?.length === 0 && <p className="text-xs text-gray-400">No milestones</p>}
-              {selected.milestones?.map(m => (
-                <div key={m.id} className="flex justify-between items-center py-1.5 border-b border-gray-50 text-sm">
-                  <span className={m.completedAt ? 'line-through text-gray-400' : ''}>{m.title}</span>
-                  <span className="text-xs text-gray-400">{m.dueDate ? new Date(m.dueDate).toLocaleDateString() : ''}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Snag List */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="font-semibold text-sm">Snag List</h4>
-                <button onClick={() => addSnag(selected.id)} className="text-xs text-orange-600 hover:underline">+ Add</button>
-              </div>
-              {selected.snagItems?.map(s => (
-                <div key={s.id} className="flex justify-between items-center py-1.5 border-b border-gray-50 text-sm">
-                  <span className={s.status === 'RESOLVED' ? 'line-through text-gray-400' : ''}>{s.description}</span>
-                  <button onClick={() => updateSnag(selected.id, s.id, s.status === 'RESOLVED' ? 'OPEN' : 'RESOLVED')} className={`text-xs px-2 py-0.5 rounded-full ${s.status === 'RESOLVED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{s.status}</button>
-                </div>
-              ))}
-            </div>
-
-            {/* Commissioning Tests */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="font-semibold text-sm">Commissioning Tests</h4>
-                <button onClick={() => addTest(selected.id)} className="text-xs text-orange-600 hover:underline">+ Add</button>
-              </div>
-              {selected.commissioningTests?.map(t => (
-                <div key={t.id} className="flex justify-between items-center py-1.5 border-b border-gray-50 text-sm">
-                  <span>{t.testName}</span>
-                  <div className="flex gap-1">
-                    {['PASS','FAIL','PENDING'].map(r => (
-                      <button key={r} onClick={() => updateTest(selected.id, t.id, r)} className={`text-xs px-2 py-0.5 rounded-full border ${t.result === r ? 'bg-orange-500 text-white border-orange-500' : 'border-gray-200 text-gray-600'}`}>{r}</button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
             {/* Warranty */}
             {selected.warranty && (
               <div className="bg-green-50 rounded-lg p-4 text-sm">
                 <h4 className="font-semibold text-green-800 mb-2">🛡️ Warranty</h4>
-                <div className="grid grid-cols-3 gap-2 text-gray-700">
+                <div className="grid grid-cols-2 gap-2 text-gray-700">
                   <div><span className="text-xs text-gray-400 block">Start</span>{new Date(selected.warranty.startDate).toLocaleDateString()}</div>
                   <div><span className="text-xs text-gray-400 block">End</span>{new Date(selected.warranty.endDate).toLocaleDateString()}</div>
                   <div><span className="text-xs text-gray-400 block">Status</span><StatusBadge status={selected.warranty.status} /></div>
-                  {selected.warranty.terms && <div className="col-span-3"><span className="text-xs text-gray-400 block">Terms</span>{selected.warranty.terms}</div>}
+                  {selected.warranty.maintenancePeriod && <div><span className="text-xs text-gray-400 block">Maintenance Period</span>{selected.warranty.maintenancePeriod}</div>}
+                  {selected.warranty.terms && <div className="col-span-2"><span className="text-xs text-gray-400 block">Warranty Notes</span>{selected.warranty.terms}</div>}
                 </div>
               </div>
             )}
@@ -278,6 +210,7 @@ export default function Projects() {
                   warrantyStartDate: w?.startDate ? w.startDate.slice(0,10) : '',
                   warrantyEndDate:   w?.endDate   ? w.endDate.slice(0,10)   : '',
                   warrantyTerms:     w?.terms     || '',
+                  warrantyMaintenancePeriod: w?.maintenancePeriod || '',
                 });
                 setModal('form');
               }} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm">Edit Project</button>

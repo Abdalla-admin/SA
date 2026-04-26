@@ -19,11 +19,18 @@ router.post('/', auth, async (req, res) => {
 });
 
 router.put('/:id', auth, async (req, res) => {
-  res.json(await prisma.expense.update({ where: { id: +req.params.id }, data: req.body }));
+  const { id, project, bankAccount, createdAt, ...data } = req.body;
+  if (data.expenseDate) data.expenseDate = new Date(data.expenseDate);
+  res.json(await prisma.expense.update({ where: { id: +req.params.id }, data }));
 });
 
 router.delete('/:id', auth, async (req, res) => {
-  await prisma.expense.delete({ where: { id: +req.params.id } });
+  const expense = await prisma.expense.findUnique({ where: { id: +req.params.id } });
+  if (!expense) return res.status(404).json({ error: 'Not found' });
+  await prisma.$transaction([
+    prisma.expense.delete({ where: { id: +req.params.id } }),
+    ...(expense.bankAccountId ? [prisma.bankAccount.update({ where: { id: expense.bankAccountId }, data: { balance: { increment: expense.amount } } })] : []),
+  ]);
   res.json({ success: true });
 });
 

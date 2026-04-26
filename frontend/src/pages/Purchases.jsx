@@ -6,6 +6,21 @@ import { useDialog } from '../context/DialogContext';
 
 const emptyForm = { vendorId:'', bankAccountId:'', notes:'', items:[{materialId:'',quantity:1,unitCost:0,totalCost:0}] };
 
+const printPO = (po) => {
+  const rows = (po.items||[]).map(i => `<tr><td>${i.material?.name||'—'} (${i.material?.unit||''})</td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">$ ${(+i.unitCost).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td style="text-align:right">$ ${(+i.totalCost).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`).join('');
+  const w = window.open('','_blank','width=800,height=600');
+  w.document.write(`<!DOCTYPE html><html><head><title>PO-${String(po.id).padStart(4,'0')}</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}h2{color:#ea580c}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:#f9fafb;text-align:left;padding:8px 10px;font-size:12px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb}td{padding:10px;border-bottom:1px solid #f3f4f6;font-size:13px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-size:13px}.total{text-align:right;font-size:16px;font-weight:bold;margin-top:8px;color:#ea580c}@page{margin:20mm}</style>
+  </head><body>
+  <h2>Purchase Order PO-${String(po.id).padStart(4,'0')}</h2>
+  <div class="meta"><div><strong>Vendor:</strong> ${po.vendor?.name||'—'}</div><div><strong>Status:</strong> ${po.status||'—'}</div><div><strong>Order Date:</strong> ${new Date(po.orderDate).toLocaleDateString()}</div><div><strong>Bank Account:</strong> ${po.bankAccount?.name||'Cash/Expense'}</div></div>
+  ${po.notes?`<p style="font-size:13px"><strong>Notes:</strong> ${po.notes}</p>`:''}
+  <table><thead><tr><th>Material</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="total">Total: $ ${(+po.totalAmount).toLocaleString('en-US',{minimumFractionDigits:2})}</div>
+  <script>window.print();<\/script></body></html>`);
+  w.document.close();
+};
+
 export default function Purchases() {
   const { confirm } = useDialog();
   const [items, setItems]         = useState([]);
@@ -100,14 +115,12 @@ export default function Purchases() {
                 <td className="px-4 py-3 text-gray-500">{new Date(p.orderDate).toLocaleDateString()}</td>
                 <td className="px-4 py-3"><StatusBadge status={p.status}/></td>
                 <td className="px-4 py-3">
-                  {p.status !== 'RECEIVED' && p.status !== 'CANCELLED' && (
-                    <button onClick={() => receive(p)} className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full hover:bg-green-200">Receive</button>
-                  )}
-                  {p.status === 'RECEIVED' && (
-                    <span className="text-xs text-gray-400">
-                      {p.bankAccount ? `💸 deducted from ${p.bankAccount.name}` : '📋 expense logged'}
-                    </span>
-                  )}
+                  <div className="flex gap-2 flex-wrap">
+                    <button onClick={() => printPO(p)} className="px-3 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-medium">🖨 Print</button>
+                    {p.status !== 'RECEIVED' && p.status !== 'CANCELLED' && (
+                      <button onClick={() => receive(p)} className="px-3 py-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium">Receive</button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

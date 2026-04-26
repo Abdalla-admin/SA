@@ -1,18 +1,45 @@
 import { useEffect, useState } from 'react';
 import client from '../api/client';
 import Modal from '../components/Modal';
+import { useDialog } from '../context/DialogContext';
 
 const emptyForm = { invoiceId: '', customerId: '', amount: '', method: 'bank_transfer', bankAccountId: '', paidAt: new Date().toISOString().split('T')[0], notes: '' };
-
 const methodColors = { bank_transfer: 'text-blue-600', cash: 'text-green-600', cheque: 'text-purple-600', card: 'text-orange-600' };
+const fmt = n => '$ ' + (+n||0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+const printPayment = (p) => {
+  const w = window.open('','_blank','width=800,height=600');
+  w.document.write(`<!DOCTYPE html><html><head><title>Payment Receipt</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}h2{color:#ea580c}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:14px}.amount{font-size:20px;font-weight:bold;color:#16a34a;margin:16px 0}@page{margin:20mm}</style>
+  </head><body>
+  <h2>Payment Receipt</h2>
+  <div class="row"><span>Invoice</span><strong>INV-${String(p.invoiceId).padStart(4,'0')}</strong></div>
+  <div class="row"><span>Customer</span><strong>${p.invoice?.customer?.name||'—'}</strong></div>
+  <div class="row"><span>Method</span><span>${(p.method||'').replace('_',' ')}</span></div>
+  <div class="row"><span>Bank Account</span><span>${p.bankAccount?.name||'Cash'}</span></div>
+  <div class="row"><span>Date</span><span>${new Date(p.paidAt).toLocaleDateString()}</span></div>
+  ${p.notes?`<div class="row"><span>Notes</span><span>${p.notes}</span></div>`:''}
+  <div class="amount">Amount Paid: $ ${(+p.amount).toLocaleString('en-US',{minimumFractionDigits:2})}</div>
+  <script>window.print();<\/script></body></html>`);
+  w.document.close();
+};
+
+const Field = ({ label, value }) => (
+  <div>
+    <p className="text-xs text-gray-400">{label}</p>
+    <p className="text-sm font-medium mt-0.5">{value || '—'}</p>
+  </div>
+);
 
 export default function Payments() {
+  const { confirm } = useDialog();
   const [items, setItems]         = useState([]);
   const [invoices, setInvoices]   = useState([]);
   const [customers, setCustomers] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
-  const [modal, setModal]         = useState(false);
+  const [modal, setModal]         = useState(null);
   const [form, setForm]           = useState(emptyForm);
+  const [viewed, setViewed]       = useState(null);
   const [error, setError]         = useState('');
 
   const load = () => client.get('/payments').then(r => setItems(r.data));
@@ -38,77 +65,132 @@ export default function Payments() {
   const save = async () => {
     setError('');
     try {
-      await client.post('/payments', {
-        invoiceId:     +form.invoiceId,
-        customerId:    form.customerId ? +form.customerId : null,
-        amount:        +form.amount,
-        method:        form.method,
-        bankAccountId: form.bankAccountId ? +form.bankAccountId : null,
-        paidAt:        form.paidAt,
-        notes:         form.notes || null,
-      });
-      setModal(false);
+      if (form.id) {
+        const { data } = await client.put(`/payments/${form.id}`, {
+          amount: +form.amount,
+          method: form.method,
+          bankAccountId: form.bankAccountId ? +form.bankAccountId : null,
+          paidAt: form.paidAt,
+          notes: form.notes || null,
+        });
+        setItems(i => i.map(x => x.id === data.id ? data : x));
+      } else {
+        await client.post('/payments', {
+          invoiceId:     +form.invoiceId,
+          customerId:    form.customerId ? +form.customerId : null,
+          amount:        +form.amount,
+          method:        form.method,
+          bankAccountId: form.bankAccountId ? +form.bankAccountId : null,
+          paidAt:        form.paidAt,
+          notes:         form.notes || null,
+        });
+        load();
+      }
+      setModal(null);
       setForm(emptyForm);
-      load();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to record payment');
     }
+  };
+
+  const voidPayment = async id => {
+    if (!await confirm('Void this payment? The bank balance will be reversed and invoice status updated.')) return;
+    await client.delete(`/payments/${id}`);
+    setItems(i => i.filter(x => x.id !== id));
+    if (viewed?.id === id) setModal(null);
+    load();
   };
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-        <button onClick={() => { setForm(emptyForm); setError(''); setModal(true); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Record Payment</button>
+        <button onClick={() => { setForm(emptyForm); setError(''); setModal('new'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Record Payment</button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>{['Invoice','Customer','Amount','Method','Bank Account','Date'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['Invoice','Customer','Amount','Method','Bank Account','Date','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {items.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No payments recorded yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">No payments recorded yet</td></tr>
             )}
             {items.map(p=>(
               <tr key={p.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-mono text-gray-500">INV-{String(p.invoiceId).padStart(4,'0')}</td>
                 <td className="px-4 py-3 font-medium">{p.invoice?.customer?.name || '—'}</td>
-                <td className="px-4 py-3 font-semibold text-green-700">$ {(+p.amount).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                <td className="px-4 py-3 font-semibold text-green-700">{fmt(p.amount)}</td>
                 <td className={`px-4 py-3 capitalize font-medium ${methodColors[p.method]||'text-gray-600'}`}>{(p.method||'').replace('_',' ')}</td>
                 <td className="px-4 py-3 text-gray-500">{p.bankAccount?.name || 'Cash'}</td>
                 <td className="px-4 py-3 text-gray-500">{new Date(p.paidAt).toLocaleDateString()}</td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    <button onClick={()=>{setViewed(p);setModal('view');}} className="px-3 py-1 rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 text-xs font-medium">View</button>
+                    <button onClick={()=>{setForm({...p,invoiceId:String(p.invoiceId),bankAccountId:p.bankAccountId?String(p.bankAccountId):'',paidAt:p.paidAt?p.paidAt.slice(0,10):''});setError('');setModal('edit');}} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
+                    <button onClick={()=>voidPayment(p.id)} className="px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Void</button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {modal && (
-        <Modal title="Record Payment" onClose={() => setModal(false)}>
+      {/* View Modal */}
+      {modal === 'view' && viewed && (
+        <Modal title="Payment Details" onClose={()=>setModal(null)}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Invoice" value={`INV-${String(viewed.invoiceId).padStart(4,'0')}`} />
+              <Field label="Customer" value={viewed.invoice?.customer?.name} />
+              <div>
+                <p className="text-xs text-gray-400">Amount</p>
+                <p className="text-lg font-bold text-green-700 mt-0.5">{fmt(viewed.amount)}</p>
+              </div>
+              <Field label="Method" value={(viewed.method||'').replace('_',' ')} />
+              <Field label="Bank Account" value={viewed.bankAccount?.name || 'Cash'} />
+              <Field label="Date" value={new Date(viewed.paidAt).toLocaleDateString()} />
+              {viewed.notes && <div className="col-span-2"><Field label="Notes" value={viewed.notes} /></div>}
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <button onClick={()=>printPayment(viewed)} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-medium">🖨 Print</button>
+              <button onClick={()=>{setForm({...viewed,invoiceId:String(viewed.invoiceId),bankAccountId:viewed.bankAccountId?String(viewed.bankAccountId):'',paidAt:viewed.paidAt?viewed.paidAt.slice(0,10):''});setError('');setModal('edit');}} className="px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm font-medium">Edit</button>
+              <button onClick={()=>voidPayment(viewed.id)} className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium">Void</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* New / Edit Modal */}
+      {(modal === 'new' || modal === 'edit') && (
+        <Modal title={modal === 'edit' ? 'Edit Payment' : 'Record Payment'} onClose={() => setModal(null)}>
           <div className="space-y-4">
             {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
 
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Invoice *</label>
-              <select required value={form.invoiceId} onChange={onInvoiceChange} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
-                <option value="">Select invoice</option>
-                {invoices.map(i => (
-                  <option key={i.id} value={i.id}>
-                    INV-{String(i.id).padStart(4,'0')} — {i.customer?.name} — $ {(+i.total).toLocaleString()}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Customer *</label>
-              <select required value={form.customerId} onChange={e=>setForm(f=>({...f,customerId:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
-                <option value="">Select customer</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
+            {modal === 'new' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Invoice *</label>
+                  <select required value={form.invoiceId} onChange={onInvoiceChange} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <option value="">Select invoice</option>
+                    {invoices.map(i => (
+                      <option key={i.id} value={i.id}>
+                        INV-{String(i.id).padStart(4,'0')} — {i.customer?.name} — $ {(+i.total).toLocaleString()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Customer *</label>
+                  <select required value={form.customerId} onChange={e=>setForm(f=>({...f,customerId:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <option value="">Select customer</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -146,8 +228,8 @@ export default function Payments() {
             </div>
 
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setModal(false)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
-              <button type="button" onClick={save} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Record Payment</button>
+              <button type="button" onClick={() => setModal(null)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
+              <button type="button" onClick={save} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">{modal === 'edit' ? 'Update Payment' : 'Record Payment'}</button>
             </div>
           </div>
         </Modal>

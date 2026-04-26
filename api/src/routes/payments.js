@@ -2,11 +2,13 @@ const router = require('express').Router();
 const prisma = require('../middleware/prisma');
 const { auth } = require('../middleware/auth');
 
+const include = {
+  invoice: { select: { id: true, total: true, customer: { select: { name: true } } } },
+  bankAccount: { select: { id: true, name: true } },
+};
+
 router.get('/', auth, async (req, res) => {
-  res.json(await prisma.payment.findMany({
-    include: { invoice: { select: { id: true, total: true, customer: { select: { name: true } } } }, bankAccount: { select: { id: true, name: true } } },
-    orderBy: { createdAt: 'desc' },
-  }));
+  res.json(await prisma.payment.findMany({ include, orderBy: { createdAt: 'desc' } }));
 });
 
 router.post('/', auth, async (req, res) => {
@@ -25,8 +27,32 @@ router.post('/', auth, async (req, res) => {
   res.status(201).json(payment);
 });
 
+router.put('/:id', auth, async (req, res) => {
+  const { id, invoice, bankAccount, createdAt, ...data } = req.body;
+  if (data.paidAt) data.paidAt = new Date(data.paidAt);
+  const payment = await prisma.payment.update({ where: { id: +req.params.id }, data, include });
+  res.json(payment);
+});
+
 router.delete('/:id', auth, async (req, res) => {
-  await prisma.payment.delete({ where: { id: +req.params.id } });
+  const payment = await prisma.payment.findUnique({
+    where: { id: +req.params.id },
+    include: { invoice: { include: { payments: true } } },
+  });
+  if (!payment) return res.status(404).json({ error: 'Not found' });
+
+  const remainingPaid = payment.invoice.payments
+    .filter(p => p.id !== payment.id)
+    .reduce((s, p) => s + p.amount, 0);
+  const newStatus = remainingPaid >= payment.invoice.total ? 'PAID'
+    : remainingPaid > 0 ? 'PARTIAL'
+    : 'UNPAID';
+
+  await prisma.$transaction([
+    prisma.payment.delete({ where: { id: +req.params.id } }),
+    prisma.invoice.update({ where: { id: payment.invoiceId }, data: { status: newStatus } }),
+    ...(payment.bankAccountId ? [prisma.bankAccount.update({ where: { id: payment.bankAccountId }, data: { balance: { decrement: payment.amount } } })] : []),
+  ]);
   res.json({ success: true });
 });
 
