@@ -40,13 +40,13 @@ export default function Vendors() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>{['Name','Category','Email','Phone','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['Name','Item Description','Email','Phone','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {items.map(v=>(
               <tr key={v.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium">{v.name}</td>
-                <td className="px-4 py-3"><span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs">{v.category||'—'}</span></td>
+                <td className="px-4 py-3 text-gray-600 text-xs">{v.category||'—'}</td>
                 <td className="px-4 py-3 text-gray-500">{v.email||'—'}</td>
                 <td className="px-4 py-3">{v.phone||'—'}</td>
                 <td className="px-4 py-3">
@@ -63,7 +63,7 @@ export default function Vendors() {
       {modal && (
         <Modal title={form.id?'Edit Vendor':'New Vendor'} onClose={()=>setModal(false)}>
           <form onSubmit={save} className="space-y-3">
-            {[['Name','name','text',true],['Category','category','text'],['Email','email','email'],['Phone','phone','tel'],['Address','address','text']].map(([l,k,t,req])=>(
+            {[['Name','name','text',true],['Item Description','category','text'],['Email','email','email'],['Phone','phone','tel'],['Address','address','text']].map(([l,k,t,req])=>(
               <div key={k}>
                 <label className="block text-xs font-medium text-gray-600 mb-1">{l}</label>
                 <input type={t} required={!!req} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
