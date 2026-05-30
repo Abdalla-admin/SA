@@ -12,6 +12,7 @@ const include = {
   commissioningTests: true,
   warranty: true,
   materialAllocations: { include: { material: { select: { id: true, name: true, unit: true } } } },
+  invoices: { include: { payments: true }, orderBy: { createdAt: 'desc' } },
 };
 
 router.get('/', auth, async (req, res) => {

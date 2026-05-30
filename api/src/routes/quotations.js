@@ -4,9 +4,18 @@ const { auth } = require('../middleware/auth');
 
 const include = {
   customer: { select: { id: true, name: true } },
-  items: true,
+  project:  { select: { id: true, name: true } },
+  items: { include: { material: { select: { id: true, name: true, unit: true } } } },
   invoice: { select: { id: true, status: true } },
 };
+
+const mapItem = i => ({
+  description: i.description,
+  quantity:    +i.quantity,
+  unitPrice:   +i.unitPrice,
+  total:       +i.quantity * +i.unitPrice,
+  ...(i.materialId ? { materialId: +i.materialId } : {}),
+});
 
 router.get('/', auth, async (req, res) => {
   res.json(await prisma.quotation.findMany({ include, orderBy: { createdAt: 'desc' } }));
@@ -20,7 +29,7 @@ router.get('/:id', auth, async (req, res) => {
 
 router.post('/', auth, async (req, res) => {
   const { items, ...data } = req.body;
-  const quotation = await prisma.quotation.create({ data: { ...data, items: { create: items } }, include });
+  const quotation = await prisma.quotation.create({ data: { ...data, items: { create: (items || []).map(mapItem) } }, include });
   res.status(201).json(quotation);
 });
 
@@ -30,11 +39,7 @@ router.put('/:id', auth, async (req, res) => {
   if (items) {
     const [, quotation] = await prisma.$transaction([
       prisma.quotationItem.deleteMany({ where: { quotationId: qid } }),
-      prisma.quotation.update({
-        where: { id: qid },
-        data: { ...data, items: { create: items.map(i => ({ description: i.description, quantity: +i.quantity, unitPrice: +i.unitPrice, total: +i.quantity * +i.unitPrice })) } },
-        include,
-      }),
+      prisma.quotation.update({ where: { id: qid }, data: { ...data, items: { create: items.map(mapItem) } }, include }),
     ]);
     return res.json(quotation);
   }
@@ -52,19 +57,22 @@ router.delete('/:id', auth, async (req, res) => {
 router.post('/:id/convert', auth, async (req, res) => {
   const q = await prisma.quotation.findUnique({ where: { id: +req.params.id }, include });
   if (!q) return res.status(404).json({ error: 'Not found' });
+  const matItems = q.items.filter(i => i.materialId);
   const [updatedQ, invoice] = await prisma.$transaction([
     prisma.quotation.update({ where: { id: q.id }, data: { status: 'CONVERTED' } }),
     prisma.invoice.create({
       data: {
-        customerId: q.customerId,
+        customerId:  q.customerId,
+        projectId:   q.projectId || undefined,
         quotationId: q.id,
-        subtotal: q.subtotal,
-        tax: q.tax,
-        total: q.total,
-        dueDate: req.body.dueDate,
-        items: { create: q.items.map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })) },
+        subtotal:    q.subtotal,
+        tax:         q.tax,
+        total:       q.total,
+        dueDate:     req.body.dueDate || null,
+        items:       { create: q.items.map(i => mapItem({ ...i, materialId: i.materialId })) },
       },
     }),
+    ...matItems.map(i => prisma.material.update({ where: { id: i.materialId }, data: { quantity: { decrement: i.quantity } } })),
   ]);
   res.json({ quotation: updatedQ, invoice });
 });

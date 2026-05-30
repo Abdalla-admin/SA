@@ -41,26 +41,29 @@ router.get('/cashflow', auth, async (req, res) => {
 
 // Sales — invoices by status + list
 router.get('/sales', auth, async (req, res) => {
-  const { from, to } = req.query;
+  const { from, to, status } = req.query;
   const df = dateRange(from, to);
-  const where = df ? { createdAt: df } : {};
+  const baseWhere = df ? { createdAt: df } : {};
+  const where = status ? { ...baseWhere, status } : baseWhere;
   const [invoices, byStatus] = await Promise.all([
     prisma.invoice.findMany({
       where,
       include: { customer: { select: { name: true } }, payments: { select: { amount: true } } },
       orderBy: { createdAt: 'desc' },
     }),
-    prisma.invoice.groupBy({ by: ['status'], _sum: { total: true }, _count: true, where }),
+    prisma.invoice.groupBy({ by: ['status'], _sum: { total: true }, _count: true, where: baseWhere }),
   ]);
-  const total = invoices.reduce((s, inv) => s + inv.total, 0);
-  res.json({ total, byStatus, invoices });
+  const total     = invoices.reduce((s, inv) => s + inv.total, 0);
+  const collected = invoices.reduce((s, inv) => s + inv.payments.reduce((ps, p) => ps + p.amount, 0), 0);
+  res.json({ total, collected, outstanding: total - collected, byStatus, invoices });
 });
 
 // Expenses — by category + detailed list
 router.get('/expenses', auth, async (req, res) => {
-  const { from, to } = req.query;
+  const { from, to, category } = req.query;
   const df = dateRange(from, to);
   const where = df ? { expenseDate: df } : {};
+  if (category) where.category = category;
   const [expenses, byCategory] = await Promise.all([
     prisma.expense.findMany({
       where,
@@ -81,10 +84,13 @@ router.get('/expenses', auth, async (req, res) => {
 
 // Projects financials
 router.get('/projects', auth, async (req, res) => {
+  const { status } = req.query;
   const projects = await prisma.project.findMany({
+    where: status ? { status } : undefined,
     include: {
       customer:  { select: { name: true } },
-      contract:  { select: { value: true, invoices: { select: { total: true, status: true } } } },
+      contract:  { select: { value: true } },
+      invoices:  { select: { total: true, status: true, payments: { select: { amount: true } } } },
       expenses:  { select: { amount: true } },
       warranty:  { select: { status: true, endDate: true } },
     },
@@ -92,9 +98,10 @@ router.get('/projects', auth, async (req, res) => {
   });
   res.json(projects.map(p => ({
     ...p,
-    contractValue:   p.contract?.value || 0,
-    totalExpenses:   p.expenses.reduce((s, e) => s + e.amount, 0),
-    totalInvoiced:   (p.contract?.invoices || []).reduce((s, inv) => s + inv.total, 0),
+    contractValue: p.contract?.value || 0,
+    totalExpenses: p.expenses.reduce((s, e) => s + e.amount, 0),
+    totalInvoiced: p.invoices.reduce((s, inv) => s + inv.total, 0),
+    totalCollected: p.invoices.reduce((s, inv) => s + inv.payments.reduce((ps, pay) => ps + pay.amount, 0), 0),
   })));
 });
 

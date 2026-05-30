@@ -42,6 +42,13 @@ services:
       - '3003:3000'
     environment:
       VITE_API_URL: http://localhost:3002
+    labels:
+      - "dijitalview.client=true"
+      - "dijitalview.name=Sun Aratinga"
+      - "dijitalview.domain=https://sunaratinga.dijitalview.com"
+      - "dijitalview.app_type=Solar Company"
+      - "dijitalview.subscription=30"
+      - "dijitalview.next_payment=2026-05-30"
     depends_on:
       - api
     volumes:

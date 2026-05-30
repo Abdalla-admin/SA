@@ -140,37 +140,74 @@ model Customer {
   registrationDate DateTime?
   createdAt        DateTime  @default(now())
 
-  leads      Lead[]
-  projects   Project[]
-  quotations Quotation[]
-  contracts  Contract[]
-  invoices   Invoice[]
+  leads         Lead[]
+  projects      Project[]
+  quotations    Quotation[]
+  contracts     Contract[]
+  invoices      Invoice[]
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id          Int      @id @default(autoincrement())
+  customerId  Int
+  customer    Customer @relation(fields: [customerId], references: [id])
+  name        String
+  amount      Float
+  billingDay  Int
+  startDate   DateTime
+  lastPaidAt  DateTime?
+  status      String   @default("ACTIVE")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  payments SubscriptionPayment[]
+}
+
+model SubscriptionPayment {
+  id             Int          @id @default(autoincrement())
+  subscriptionId Int
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  amount         Float
+  paidAt         DateTime
+  notes          String?
+  createdAt      DateTime     @default(now())
 }
 
 model Vendor {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String?
-  phone     String?
-  address   String?
-  category  String?
-  notes     String?
-  createdAt DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  category      String?
+  notes         String?
+  createdAt     DateTime @default(now())
 
   purchases Purchase[]
 }
 
 model Employee {
-  id         Int       @id @default(autoincrement())
-  name       String
-  email      String?
-  phone      String?
-  position   String?
-  department String?
-  salary     Float     @default(0)
-  joinDate   DateTime?
-  active     Boolean   @default(true)
-  createdAt  DateTime  @default(now())
+  id                   Int       @id @default(autoincrement())
+  name                 String
+  email                String?
+  phone                String?
+  address              String?
+  passportNumber       String?
+  position             String?
+  contractType         String?
+  department           String?
+  salary               Float     @default(0)
+  joinDate             DateTime?
+  active               Boolean   @default(true)
+  guarantorName        String?
+  guarantorRelationship String?
+  guarantorPhone       String?
+  guarantorPassport    String?
+  notes                String?
+  createdAt            DateTime  @default(now())
 
   attendance Attendance[]
   leaves     Leave[]
@@ -179,21 +216,47 @@ model Employee {
 
 model Lead {
   id                Int        @id @default(autoincrement())
+  formType          String     @default("NEW")
   title             String
   customerId        Int?
   customer          Customer?  @relation(fields: [customerId], references: [id])
   source            String?
-  systemType        String?
-  structureType     String?
-  estimatedCapacity Float?
+  assessmentTypeName String?
   siteAddress       String?
+  estimatedPowerPerMonth Float?
+  avgPowerLastMonths     String?
+  powerSource            String?
+  highestMonthlyCost     Float?
+  unitCostPerKw          Float?
+  estimatedDailyKwh      Float?
+  siteOwnership          String?
+  installedDate          DateTime?
+  systemType        String?
+  estimatedCapacity Float?
+  batteryStorage    String?
+  pumpSize          String?
+  structureType     String?
+  shading           String?
+  availableArea     Float?
+  areaLength        Float?
+  areaWidth         Float?
+  gpsLatitude       String?
+  gpsLongitude      String?
+  purposeOfUse      String?
+  requiredTime      String?
+  maintenancePurpose String?
+  customerType      String?
   status            LeadStatus @default(NEW)
+  assessmentStatus  String?
   coordinatorId     Int?
   coordinator       User?      @relation("LeadCoordinator", fields: [coordinatorId], references: [id])
   surveyDate        DateTime?
   surveyNotes       String?
   requirementReport String?
   proposalAmount    Float?
+  paymentMethod     String?
+  registeredDate    DateTime?
+  followUpDate      DateTime?
   ceoApprovedAt     DateTime?
   ceoApprovedBy     String?
   clientApprovedAt  DateTime?
@@ -232,6 +295,8 @@ model Project {
   warranty            Warranty?
   expenses            Expense[]
   maintenanceRequests MaintenanceRequest[]
+  invoices            Invoice[]
+  quotations          Quotation[]
 }
 
 model Design {
@@ -328,8 +393,10 @@ model Material {
   specs     String?
   createdAt DateTime @default(now())
 
-  purchaseItems PurchaseItem[]
-  allocations   MaterialAllocation[]
+  purchaseItems  PurchaseItem[]
+  allocations    MaterialAllocation[]
+  quotationItems QuotationItem[] @relation("QuotationItemMaterial")
+  invoiceItems   InvoiceItem[]   @relation("InvoiceItemMaterial")
 }
 
 model MaterialAllocation {
@@ -374,8 +441,9 @@ model Quotation {
   id             Int             @id @default(autoincrement())
   customerId     Int?
   customer       Customer?       @relation(fields: [customerId], references: [id])
+  projectId      Int?
+  project        Project?        @relation(fields: [projectId], references: [id])
   status         QuotationStatus @default(DRAFT)
-  systemCapacity Float?
   validUntil     DateTime?
   subtotal       Float           @default(0)
   tax            Float           @default(0)
@@ -391,6 +459,8 @@ model QuotationItem {
   id          Int       @id @default(autoincrement())
   quotationId Int
   quotation   Quotation @relation(fields: [quotationId], references: [id])
+  materialId  Int?
+  material    Material? @relation("QuotationItemMaterial", fields: [materialId], references: [id])
   description String
   quantity    Float
   unitPrice   Float
@@ -424,6 +494,9 @@ model Invoice {
   contract    Contract?     @relation(fields: [contractId], references: [id])
   quotationId Int?          @unique
   quotation   Quotation?    @relation(fields: [quotationId], references: [id])
+  projectId   Int?
+  project     Project?      @relation(fields: [projectId], references: [id])
+  type        String        @default("INVOICE")
   status      InvoiceStatus @default(UNPAID)
   issueDate   DateTime      @default(now())
   dueDate     DateTime?
@@ -438,9 +511,11 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id          Int     @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   invoiceId   Int
-  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id])
+  materialId  Int?
+  material    Material? @relation("InvoiceItemMaterial", fields: [materialId], references: [id])
   description String
   quantity    Float
   unitPrice   Float

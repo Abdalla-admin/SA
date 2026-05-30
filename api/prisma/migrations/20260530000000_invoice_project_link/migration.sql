@@ -1,0 +1,7 @@
+ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "projectId" INTEGER;
+
+DO $$ BEGIN
+  ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_projectId_fkey"
+    FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

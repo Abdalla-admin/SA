@@ -1,0 +1,10 @@
+ALTER TABLE "Vendor" ADD COLUMN IF NOT EXISTS "contactPerson" TEXT;
+
+ALTER TABLE "Employee" ADD COLUMN IF NOT EXISTS "address" TEXT;
+ALTER TABLE "Employee" ADD COLUMN IF NOT EXISTS "passportNumber" TEXT;
+ALTER TABLE "Employee" ADD COLUMN IF NOT EXISTS "contractType" TEXT;
+ALTER TABLE "Employee" ADD COLUMN IF NOT EXISTS "guarantorName" TEXT;
+ALTER TABLE "Employee" ADD COLUMN IF NOT EXISTS "guarantorRelationship" TEXT;
+ALTER TABLE "Employee" ADD COLUMN IF NOT EXISTS "guarantorPhone" TEXT;
+ALTER TABLE "Employee" ADD COLUMN IF NOT EXISTS "guarantorPassport" TEXT;
+ALTER TABLE "Employee" ADD COLUMN IF NOT EXISTS "notes" TEXT;

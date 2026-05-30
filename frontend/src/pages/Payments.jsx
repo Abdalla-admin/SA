@@ -2,20 +2,24 @@ import { useEffect, useState } from 'react';
 import client from '../api/client';
 import Modal from '../components/Modal';
 import { useDialog } from '../context/DialogContext';
+import { payCode, invCode } from '../utils/docCode';
 
 const emptyForm = { invoiceId: '', customerId: '', amount: '', method: 'bank_transfer', bankAccountId: '', paidAt: new Date().toISOString().split('T')[0], notes: '' };
-const methodColors = { bank_transfer: 'text-blue-600', cash: 'text-green-600', cheque: 'text-purple-600', card: 'text-orange-600' };
+const methodColors = { bank_transfer: 'text-blue-600', cash: 'text-green-600', mobile_money: 'text-yellow-600', cheque: 'text-purple-600', card: 'text-orange-600' };
 const fmt = n => '$ ' + (+n||0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
 const printPayment = (p) => {
+  const code = payCode(p.id, p.createdAt || p.paidAt);
+  const invRef = invCode(p.invoiceId, p.invoice?.createdAt || p.paidAt);
+  const logo = window.location.origin + '/logo.png';
   const w = window.open('','_blank','width=800,height=600');
-  w.document.write(`<!DOCTYPE html><html><head><title>Payment Receipt</title>
-  <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}h2{color:#ea580c}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:14px}.amount{font-size:20px;font-weight:bold;color:#16a34a;margin:16px 0}@page{margin:20mm}</style>
+  w.document.write(`<!DOCTYPE html><html><head><title>${code}</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #ea580c;padding-bottom:12px;margin-bottom:20px}.co-wrap{display:flex;align-items:center;gap:10px}.company-name{font-size:20px;font-weight:bold;color:#1e3a5f}.company-tag{font-size:11px;color:#ea580c;font-weight:600}.doc-code{font-size:11px;color:#6b7280;margin-top:4px}.doc-title{font-size:22px;font-weight:bold;color:#ea580c}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:14px}.amount{font-size:20px;font-weight:bold;color:#16a34a;margin:16px 0}@page{margin:20mm}</style>
   </head><body>
-  <h2>Payment Receipt</h2>
-  <div class="row"><span>Invoice</span><strong>INV-${String(p.invoiceId).padStart(4,'0')}</strong></div>
+  <div class="header"><div class="co-wrap"><img src="${logo}" style="height:55px;object-fit:contain" onerror="this.style.display='none'"><div><div class="company-name">SUN ARATINGA</div><div class="company-tag">SUNLIGHT INTO ELECTRICITY</div></div></div><div style="text-align:right"><div class="doc-title">PAYMENT RECEIPT</div><div class="doc-code">${code}</div></div></div>
+  <div class="row"><span>Invoice Ref</span><strong>${invRef}</strong></div>
   <div class="row"><span>Customer</span><strong>${p.invoice?.customer?.name||'—'}</strong></div>
-  <div class="row"><span>Method</span><span>${(p.method||'').replace('_',' ')}</span></div>
+  <div class="row"><span>Method</span><span style="text-transform:capitalize">${(p.method||'').replace(/_/g,' ')}</span></div>
   <div class="row"><span>Bank Account</span><span>${p.bankAccount?.name||'Cash'}</span></div>
   <div class="row"><span>Date</span><span>${new Date(p.paidAt).toLocaleDateString()}</span></div>
   ${p.notes?`<div class="row"><span>Notes</span><span>${p.notes}</span></div>`:''}
@@ -202,6 +206,7 @@ export default function Payments() {
                 <select value={form.method} onChange={e=>setForm(f=>({...f,method:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
                   <option value="bank_transfer">Bank Transfer</option>
                   <option value="cash">Cash</option>
+                  <option value="mobile_money">Mobile Money</option>
                   <option value="cheque">Cheque</option>
                   <option value="card">Card</option>
                 </select>

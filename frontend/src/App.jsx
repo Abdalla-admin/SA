@@ -13,8 +13,8 @@ import Vendors      from './pages/Vendors';
 import Employees    from './pages/Employees';
 import Materials    from './pages/Materials';
 import Purchases    from './pages/Purchases';
-import Quotations   from './pages/Quotations';
-import Invoices     from './pages/Invoices';
+import Quotations     from './pages/Quotations';
+import Invoices       from './pages/Invoices';
 import Payments     from './pages/Payments';
 import Expenses     from './pages/Expenses';
 import BankAccounts from './pages/BankAccounts';
@@ -22,8 +22,6 @@ import FundTransfers from './pages/FundTransfers';
 import Warranty     from './pages/Warranty';
 import Maintenance  from './pages/Maintenance';
 import Payroll      from './pages/Payroll';
-import Attendance   from './pages/Attendance';
-import Leave        from './pages/Leave';
 import Reports      from './pages/Reports';
 import Users        from './pages/Users';
 import Permissions  from './pages/Permissions';
@@ -66,7 +64,7 @@ export default function App() {
             <Route path="materials"   element={<PermGuard module="materials"><Materials /></PermGuard>} />
             <Route path="purchases"   element={<PermGuard module="purchases"><Purchases /></PermGuard>} />
             <Route path="quotations"  element={<PermGuard module="quotations"><Quotations /></PermGuard>} />
-            <Route path="invoices"    element={<PermGuard module="invoices"><Invoices /></PermGuard>} />
+<Route path="invoices"       element={<PermGuard module="invoices"><Invoices /></PermGuard>} />
             <Route path="payments"    element={<PermGuard module="payments"><Payments /></PermGuard>} />
             <Route path="expenses"    element={<PermGuard module="expenses"><Expenses /></PermGuard>} />
             <Route path="bank-accounts"  element={<PermGuard module="bank_accounts"><BankAccounts /></PermGuard>} />
@@ -74,8 +72,6 @@ export default function App() {
             <Route path="warranty"    element={<PermGuard module="warranty"><Warranty /></PermGuard>} />
             <Route path="maintenance" element={<PermGuard module="maintenance"><Maintenance /></PermGuard>} />
             <Route path="payroll"     element={<PermGuard module="payroll"><Payroll /></PermGuard>} />
-            <Route path="attendance"  element={<PermGuard module="attendance"><Attendance /></PermGuard>} />
-            <Route path="leave"       element={<PermGuard module="leave"><Leave /></PermGuard>} />
             <Route path="reports"     element={<PermGuard module="reports"><Reports /></PermGuard>} />
             <Route path="users"       element={<Users />} />
             <Route path="permissions" element={<Permissions />} />

@@ -9,7 +9,9 @@ const include = {
 };
 
 router.get('/', auth, async (req, res) => {
-  const leads = await prisma.lead.findMany({ include, orderBy: { createdAt: 'desc' } });
+  const where = {};
+  if (req.query.formType) where.formType = req.query.formType;
+  const leads = await prisma.lead.findMany({ where, include, orderBy: { createdAt: 'desc' } });
   res.json(leads);
 });
 

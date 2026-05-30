@@ -17,7 +17,7 @@ const nav = [
   { to: '/purchases',     label: 'Purchases',        icon: '🛒', module: 'purchases' },
   { section: 'Finance' },
   { to: '/quotations',    label: 'Quotations',       icon: '📋', module: 'quotations' },
-  { to: '/invoices',      label: 'Invoices',         icon: '🧾', module: 'invoices' },
+  { to: '/invoices',       label: 'Invoices',       icon: '🧾', module: 'invoices' },
   { to: '/payments',      label: 'Payments',       icon: '💳', module: 'payments' },
   { to: '/expenses',      label: 'Expenses',       icon: '💸', module: 'expenses' },
   { section: 'Banking' },
@@ -27,9 +27,7 @@ const nav = [
   { to: '/warranty',      label: 'Warranty',       icon: '🛡️', module: 'warranty' },
   { to: '/maintenance',   label: 'Maintenance',    icon: '🔩', module: 'maintenance' },
   { section: 'HR & Payroll' },
-  { to: '/attendance',    label: 'Attendance',     icon: '📅', module: 'attendance' },
-  { to: '/leave',         label: 'Leave',          icon: '🏖️', module: 'leave' },
-  { to: '/payroll',       label: 'Payroll',        icon: '💰', module: 'payroll' },
+{ to: '/payroll',       label: 'Payroll',        icon: '💰', module: 'payroll' },
   { section: 'Reports' },
   { to: '/reports',       label: 'Reports',        icon: '📈', module: 'reports' },
   { section: 'Admin' },
@@ -60,10 +58,10 @@ export default function Sidebar({ open, onClose }) {
         ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-700">
-          <div className="w-9 h-9 bg-orange-500 rounded-lg flex items-center justify-center text-xl">☀️</div>
+          <img src="/logo.png" alt="Sun Aratinga" className="w-10 h-10 object-contain" onError={e => { e.target.style.display='none'; }} />
           <div>
             <div className="font-bold text-orange-400 leading-tight">Sun Aratinga</div>
-            <div className="text-xs text-gray-400">Solar Management</div>
+            <div className="text-xs text-gray-400">Sunlight Into Electricity</div>
           </div>
         </div>
 

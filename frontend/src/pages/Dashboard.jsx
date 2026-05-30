@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import client from '../api/client';
 import StatusBadge from '../components/StatusBadge';
+import { invCode } from '../utils/docCode';
 
-const COLORS = ['#f97316','#fb923c','#fdba74','#22c55e','#3b82f6','#8b5cf6','#ef4444','#6b7280'];
+const COLORS = ['#f97316','#22c55e','#3b82f6','#ef4444','#8b5cf6','#fb923c','#6b7280'];
 
 function StatCard({ label, value, icon, color }) {
   return (
-    <div className={`bg-white rounded-xl p-5 shadow-sm border border-gray-100`}>
+    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500">{label}</p>
@@ -23,11 +24,13 @@ function StatCard({ label, value, icon, color }) {
 export default function Dashboard() {
   const [data, setData] = useState(null);
 
-  useEffect(() => { client.get('/dashboard').then(r => setData(r.data)); }, []);
+  useEffect(() => {
+    client.get('/dashboard').then(r => setData(r.data));
+  }, []);
 
   if (!data) return <div className="text-center py-20 text-gray-400">Loading dashboard...</div>;
 
-  const { stats, leadsByStatus, projectsByStatus, lowStockMaterials, warrantyExpiringSoon, recentLeads, recentProjects } = data;
+  const { stats, invoicesByStatus, projectsByStatus, lowStockMaterials, warrantyExpiringSoon, recentProjects, recentInvoices } = data;
 
   return (
     <div className="space-y-6">
@@ -35,23 +38,23 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Leads" value={stats.totalLeads} icon="🎯" color="text-orange-600" />
-        <StatCard label="Active Projects" value={stats.activeProjects} icon="⚡" color="text-blue-600" />
-        <StatCard label="Customers" value={stats.totalCustomers} icon="👤" color="text-green-600" />
-        <StatCard label="Total Revenue" value={`$ ${stats.totalRevenue?.toLocaleString()}`} icon="💰" color="text-purple-600" />
+        <StatCard label="Pending Invoices"  value={stats.pendingInvoices}                                   icon="🧾" color="text-red-600" />
+        <StatCard label="Active Projects"   value={stats.activeProjects}                                    icon="⚡" color="text-blue-600" />
+        <StatCard label="Customers"         value={stats.totalCustomers}                                    icon="👤" color="text-green-600" />
+        <StatCard label="Total Revenue"     value={`$ ${(stats.totalRevenue||0).toLocaleString()}`}         icon="💰" color="text-purple-600" />
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <h3 className="font-semibold text-gray-700 mb-4">Leads by Status</h3>
+          <h3 className="font-semibold text-gray-700 mb-4">Invoices by Status</h3>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={leadsByStatus.map(d => ({ name: d.status.replace(/_/g,' '), count: d._count }))}>
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-              <YAxis />
+            <PieChart>
+              <Pie data={invoicesByStatus.map(d => ({ name: d.status, value: d._count }))} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                {invoicesByStatus.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Pie>
               <Tooltip />
-              <Bar dataKey="count" fill="#f97316" radius={[4,4,0,0]} />
-            </BarChart>
+            </PieChart>
           </ResponsiveContainer>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
@@ -97,18 +100,24 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-gray-700">Recent Leads</h3>
-            <Link to="/leads" className="text-sm text-orange-600 hover:underline">View all</Link>
+            <h3 className="font-semibold text-gray-700">Recent Invoices</h3>
+            <Link to="/invoices" className="text-sm text-orange-600 hover:underline">View all</Link>
           </div>
-          {recentLeads.map(l => (
-            <div key={l.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-              <div>
-                <div className="text-sm font-medium">{l.title}</div>
-                <div className="text-xs text-gray-400">{l.customer?.name}</div>
+          {recentInvoices.map(inv => {
+            const paid = (inv.payments||[]).reduce((s,p)=>s+ +p.amount,0);
+            return (
+              <div key={inv.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+                <div>
+                  <div className="text-xs font-mono text-gray-500">{invCode(inv.id, inv.createdAt)}</div>
+                  <div className="text-xs text-gray-400">{inv.customer?.name||'—'}</div>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="font-medium">$ {(+inv.total).toLocaleString()}</span>
+                  <StatusBadge status={inv.status} />
+                </div>
               </div>
-              <StatusBadge status={l.status} />
-            </div>
-          ))}
+            );
+          })}
         </div>
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-4">

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Sun rays -->
+  <polygon points="100,4 96,18 104,18" fill="#f97316"/>
+  <polygon points="132,10 124,22 131,27" fill="#f97316"/>
+  <polygon points="156,30 144,36 149,44" fill="#f97316"/>
+  <polygon points="163,62 152,62 154,71" fill="#f97316"/>
+  <polygon points="68,10 69,23 76,18" fill="#f97316"/>
+  <polygon points="44,30 51,44 56,36" fill="#f97316"/>
+  <polygon points="37,62 46,71 48,62" fill="#f97316"/>
+
+  <!-- Orange sun dome -->
+  <path d="M 45,78 A 55,55 0 0 1 155,78" fill="#f97316"/>
+
+  <!-- Parrot body white fill -->
+  <path d="M 72,80
+    Q 68,60 78,48
+    Q 85,38 100,38
+    Q 118,38 128,52
+    Q 138,65 135,82
+    Q 145,92 140,105
+    Q 136,118 124,126
+    Q 112,135 96,132
+    Q 78,130 70,118
+    Q 62,108 66,96
+    Q 62,88 68,80 Z"
+    fill="white"/>
+
+  <!-- Parrot head outline - main curves -->
+  <path d="M 78,48 Q 85,36 100,37 Q 118,37 128,52 Q 140,65 135,83"
+    fill="none" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
+  <!-- Back of head / neck -->
+  <path d="M 78,48 Q 66,52 66,68 Q 64,82 68,95 Q 62,108 70,118 Q 80,132 96,133 Q 114,134 125,126 Q 138,116 140,104 Q 146,90 135,83"
+    fill="none" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Feather line on back -->
+  <path d="M 78,48 Q 66,56 68,75" fill="none" stroke="#1e3a5f" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 75,52 Q 60,65 64,85" fill="none" stroke="#1e3a5f" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Beak -->
+  <path d="M 128,52 Q 148,55 146,68 Q 138,78 128,72" fill="#1e3a5f" stroke="#1e3a5f" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M 128,62 Q 140,63 138,70" fill="none" stroke="white" stroke-width="1.5"/>
+
+  <!-- Eye -->
+  <circle cx="116" cy="62" r="7" fill="#f97316"/>
+  <circle cx="117" cy="61" r="2.5" fill="#1e3a5f"/>
+  <circle cx="118" cy="60" r="1" fill="white"/>
+
+  <!-- Lightning bolt -->
+  <path d="M 102,74 L 88,96 L 100,96 L 88,122 L 116,92 L 103,92 L 114,74 Z"
+    fill="#f97316" stroke="#f97316" stroke-width="1" stroke-linejoin="round"/>
+</svg>

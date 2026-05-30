@@ -2,14 +2,18 @@ import { useEffect, useState } from 'react';
 import client from '../api/client';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
+import { invCode } from '../utils/docCode';
 
-const emptyForm = { customerId:'', contractId:'', dueDate:'', subtotal:0, tax:0, total:0, notes:'', items:[{description:'',quantity:1,unitPrice:0}] };
+const emptyItem = () => ({ materialId:'', description:'', quantity:1, unitPrice:0 });
+const emptyForm = { customerId:'', contractId:'', projectId:'', dueDate:'', taxPct:0, subtotal:0, tax:0, total:0, notes:'', items:[emptyItem()] };
 const emptyPay  = { amount:'', method:'bank_transfer', bankAccountId:'', paidAt:'', notes:'' };
 const fmt = n => '$ ' + (+n||0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
 export default function Invoices() {
   const [items, setItems]           = useState([]);
   const [customers, setCustomers]   = useState([]);
+  const [projects, setProjects]     = useState([]);
+  const [materials, setMaterials]   = useState([]);
   const [bankAccounts, setBankAccts]= useState([]);
   const [statusFilter, setStatus]   = useState('');
   const [modal, setModal]           = useState(false);
@@ -17,6 +21,7 @@ export default function Invoices() {
   const [payModal, setPayModal]     = useState(null);
   const [form, setForm]             = useState(emptyForm);
   const [payForm, setPayForm]       = useState(emptyPay);
+  const [payError, setPayError]     = useState('');
 
   const load = () => {
     const params = statusFilter ? `?status=${statusFilter}` : '';
@@ -30,12 +35,14 @@ export default function Invoices() {
   };
 
   const printInvoice = (inv) => {
+    const code = invCode(inv.id, inv.createdAt || inv.issueDate);
     const rows = (inv.items||[]).map(i => `<tr><td>${i.description}</td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">$ ${(+i.unitPrice).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td style="text-align:right">$ ${(+(i.total||i.quantity*i.unitPrice)).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`).join('');
     const w = window.open('','_blank','width=800,height=600');
-    w.document.write(`<!DOCTYPE html><html><head><title>INV-${String(inv.id).padStart(4,'0')}</title>
-    <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}h2{color:#ea580c}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:#f9fafb;text-align:left;padding:8px 10px;font-size:12px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb}td{padding:10px;border-bottom:1px solid #f3f4f6;font-size:13px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-size:13px}.totals{text-align:right;margin-top:8px}.totals p{margin:4px 0;font-size:13px}.totals .grand{font-size:16px;font-weight:bold;color:#ea580c}@page{margin:20mm}</style>
+    const logo = window.location.origin + '/logo.png';
+    w.document.write(`<!DOCTYPE html><html><head><title>${code}</title>
+    <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:#f9fafb;text-align:left;padding:8px 10px;font-size:12px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb}td{padding:10px;border-bottom:1px solid #f3f4f6;font-size:13px}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #ea580c;padding-bottom:12px;margin-bottom:20px}.co-wrap{display:flex;align-items:center;gap:10px}.company-name{font-size:20px;font-weight:bold;color:#1e3a5f}.company-tag{font-size:11px;color:#ea580c;font-weight:600}.doc-code{font-size:11px;color:#6b7280;margin-top:4px}.doc-title{font-size:22px;font-weight:bold;color:#ea580c}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-size:13px}.totals{text-align:right;margin-top:8px}.totals p{margin:4px 0;font-size:13px}.totals .grand{font-size:16px;font-weight:bold;color:#ea580c}@page{margin:20mm}</style>
     </head><body>
-    <h2>Invoice INV-${String(inv.id).padStart(4,'0')}</h2>
+    <div class="header"><div class="co-wrap"><img src="${logo}" style="height:55px;object-fit:contain" onerror="this.style.display='none'"><div><div class="company-name">SUN ARATINGA</div><div class="company-tag">SUNLIGHT INTO ELECTRICITY</div></div></div><div style="text-align:right"><div class="doc-title">INVOICE</div><div class="doc-code">${code}</div></div></div>
     <div class="meta"><div><strong>Customer:</strong> ${inv.customer?.name||'—'}</div><div><strong>Status:</strong> ${inv.status||'—'}</div><div><strong>Issue Date:</strong> ${inv.issueDate?new Date(inv.issueDate).toLocaleDateString():'—'}</div><div><strong>Due Date:</strong> ${inv.dueDate?new Date(inv.dueDate).toLocaleDateString():'—'}</div></div>
     <table><thead><tr><th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="totals"><p>Subtotal: $ ${(+inv.subtotal).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p>Tax: $ ${(+inv.tax).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p class="grand">Total: $ ${(+inv.total).toLocaleString('en-US',{minimumFractionDigits:2})}</p></div>
@@ -47,13 +54,34 @@ export default function Invoices() {
     load();
     client.get('/customers').then(r => setCustomers(r.data));
     client.get('/bank-accounts').then(r => setBankAccts(r.data));
+    client.get('/projects').then(r => setProjects(r.data));
+    client.get('/materials').then(r => setMaterials(r.data));
   }, [statusFilter]);
 
   const setLine = (idx, field, val) => {
     const its = [...form.items];
     its[idx] = { ...its[idx], [field]: val };
     const sub = its.reduce((s,i) => s + +i.quantity * +i.unitPrice, 0);
-    setForm(f => ({ ...f, items: its, subtotal: sub, total: sub + +f.tax }));
+    setForm(f => {
+      const taxAmt = sub * (+f.taxPct / 100);
+      return { ...f, items: its, subtotal: sub, tax: taxAmt, total: sub + taxAmt };
+    });
+  };
+
+  const pickMaterial = (idx, matId) => {
+    const mat = materials.find(m => String(m.id) === matId);
+    const its = [...form.items];
+    its[idx] = {
+      ...its[idx],
+      materialId:  matId,
+      description: mat ? mat.name : its[idx].description,
+      unitPrice:   mat ? mat.unitCost : its[idx].unitPrice,
+    };
+    const sub = its.reduce((s,i) => s + +i.quantity * +i.unitPrice, 0);
+    setForm(f => {
+      const taxAmt = sub * (+f.taxPct / 100);
+      return { ...f, items: its, subtotal: sub, tax: taxAmt, total: sub + taxAmt };
+    });
   };
 
   const openEdit = async inv => {
@@ -62,12 +90,14 @@ export default function Invoices() {
       id:         data.id,
       customerId: data.customerId || '',
       contractId: data.contractId || '',
+      projectId:  data.projectId  || '',
       dueDate:    data.dueDate ? data.dueDate.slice(0,10) : '',
+      taxPct:     data.subtotal > 0 ? +((+data.tax / +data.subtotal) * 100).toFixed(2) : 0,
       subtotal:   data.subtotal,
       tax:        data.tax,
       total:      data.total,
       notes:      data.notes || '',
-      items:      data.items?.length ? data.items.map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })) : [{ description:'', quantity:1, unitPrice:0 }],
+      items:      data.items?.length ? data.items.map(i => ({ materialId: i.materialId || '', description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })) : [emptyItem()],
     });
     setModal(true);
   };
@@ -77,12 +107,13 @@ export default function Invoices() {
     const payload = {
       customerId: form.customerId ? +form.customerId : null,
       contractId: form.contractId ? +form.contractId : null,
+      projectId:  form.projectId  ? +form.projectId  : null,
       dueDate:    form.dueDate || null,
       subtotal:   +form.subtotal,
       tax:        +form.tax,
       total:      +form.total,
       notes:      form.notes || null,
-      items: form.items.map(i => ({ description: i.description, quantity: +i.quantity, unitPrice: +i.unitPrice, total: +i.quantity * +i.unitPrice })),
+      items: form.items.map(i => ({ materialId: i.materialId ? +i.materialId : null, description: i.description, quantity: +i.quantity, unitPrice: +i.unitPrice, total: +i.quantity * +i.unitPrice })),
     };
     if (form.id) {
       const { data } = await client.put(`/invoices/${form.id}`, payload);
@@ -103,22 +134,27 @@ export default function Invoices() {
     const paid = (inv.payments || []).reduce((s,p) => s + +p.amount, 0);
     const balance = +inv.total - paid;
     setPayModal(inv);
+    setPayError('');
     setPayForm({ ...emptyPay, amount: balance.toFixed(2), paidAt: new Date().toISOString().split('T')[0] });
   };
 
   const savePay = async e => {
     e.preventDefault();
-    await client.post('/payments', {
-      invoiceId:     payModal.id,
-      customerId:    payModal.customerId,
-      amount:        +payForm.amount,
-      method:        payForm.method,
-      bankAccountId: payForm.bankAccountId || null,
-      paidAt:        payForm.paidAt,
-      notes:         payForm.notes,
-    });
-    setPayModal(null);
-    load();
+    setPayError('');
+    try {
+      await client.post('/payments', {
+        invoiceId:     payModal.id,
+        amount:        +payForm.amount,
+        method:        payForm.method,
+        bankAccountId: payForm.bankAccountId ? +payForm.bankAccountId : null,
+        paidAt:        payForm.paidAt || null,
+        notes:         payForm.notes,
+      });
+      setPayModal(null);
+      load();
+    } catch (err) {
+      setPayError(err.response?.data?.error || 'Failed to record payment');
+    }
   };
 
   return (
@@ -141,7 +177,7 @@ export default function Invoices() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>{['#','Customer','Due Date','Total','Paid','Balance','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['Code','Customer','Project','Due Date','Total','Paid','Balance','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {items.map(inv => {
@@ -150,8 +186,9 @@ export default function Invoices() {
               const canPay  = (inv.status==='UNPAID'||inv.status==='PARTIAL'||inv.status==='OVERDUE') && balance > 0;
               return (
                 <tr key={inv.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-500">INV-{String(inv.id).padStart(4,'0')}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{invCode(inv.id, inv.createdAt)}</td>
                   <td className="px-4 py-3 font-medium">{inv.customer?.name||'—'}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{inv.project?.name||'—'}</td>
                   <td className="px-4 py-3 text-gray-500">{inv.dueDate?new Date(inv.dueDate).toLocaleDateString():'—'}</td>
                   <td className="px-4 py-3 font-medium">{fmt(inv.total)}</td>
                   <td className="px-4 py-3 text-green-600">{paid>0?fmt(paid):<span className="text-gray-300">—</span>}</td>
@@ -189,6 +226,21 @@ export default function Invoices() {
                 </select>
               </div>
               <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Project (optional)</label>
+                <select value={form.projectId||''} onChange={e => {
+                  const pid = e.target.value;
+                  const proj = projects.find(p => String(p.id) === pid);
+                  setForm(f => ({
+                    ...f,
+                    projectId: pid,
+                    customerId: proj?.customer?.id ? String(proj.customer.id) : f.customerId,
+                  }));
+                }} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                  <option value="">No project</option>
+                  {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Due Date</label>
                 <input type="date" value={form.dueDate} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
               </div>
@@ -196,26 +248,36 @@ export default function Invoices() {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-medium text-gray-600">Line Items</label>
-                <button type="button" onClick={()=>setForm(f=>({...f,items:[...f.items,{description:'',quantity:1,unitPrice:0}]}))} className="text-xs text-orange-600 hover:underline">+ Add</button>
+                <button type="button" onClick={()=>setForm(f=>({...f,items:[...f.items,emptyItem()]}))} className="text-xs text-orange-600 hover:underline">+ Add Item</button>
               </div>
-              <div className="grid grid-cols-12 gap-2 mb-1 text-xs text-gray-400 font-medium px-1">
-                <span className="col-span-5">Description</span><span className="col-span-2">Qty</span><span className="col-span-2">Unit Price</span><span className="col-span-2 text-right">Total</span><span className="col-span-1"/>
+              <div className="grid gap-1 mb-1 text-xs text-gray-400 font-medium px-1" style={{gridTemplateColumns:'repeat(13,minmax(0,1fr))'}}>
+                <span className="col-span-3">Inventory Item</span><span className="col-span-4">Description</span><span className="col-span-2">Qty</span><span className="col-span-2">Unit Price</span><span className="col-span-1 text-right">Total</span><span className="col-span-1"/>
               </div>
               {form.items.map((item,idx)=>(
-                <div key={idx} className="grid grid-cols-12 gap-2 mb-2 items-center">
-                  <input placeholder="Description" value={item.description} onChange={e=>setLine(idx,'description',e.target.value)} className="col-span-5 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
-                  <input type="number" placeholder="Qty" value={item.quantity} onChange={e=>setLine(idx,'quantity',+e.target.value)} className="col-span-2 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
-                  <input type="number" placeholder="Unit Price" value={item.unitPrice} onChange={e=>setLine(idx,'unitPrice',+e.target.value)} className="col-span-2 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
-                  <div className="col-span-2 text-right text-sm font-medium text-gray-700">{fmt(+item.quantity * +item.unitPrice)}</div>
+                <div key={idx} className="grid gap-1 mb-2 items-center" style={{gridTemplateColumns:'repeat(13,minmax(0,1fr))'}}>
+                  <select value={item.materialId||''} onChange={e=>pickMaterial(idx,e.target.value)}
+                    className="col-span-3 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-400 bg-orange-50">
+                    <option value="">— Custom —</option>
+                    {materials.map(m=><option key={m.id} value={m.id}>{m.name} ({m.unit}) — {m.quantity} left</option>)}
+                  </select>
+                  <input placeholder="Description" value={item.description} onChange={e=>setLine(idx,'description',e.target.value)} className="col-span-4 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+                  <input type="number" min="0.01" step="any" value={item.quantity} onChange={e=>setLine(idx,'quantity',+e.target.value)} className="col-span-2 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+                  <input type="number" min="0" step="any" value={item.unitPrice} onChange={e=>setLine(idx,'unitPrice',+e.target.value)} className="col-span-2 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+                  <div className="col-span-1 text-right text-xs font-medium text-gray-700">{fmt(+item.quantity * +item.unitPrice)}</div>
                   <button type="button" onClick={()=>setForm(f=>({...f,items:f.items.filter((_,i)=>i!==idx)}))} className="col-span-1 text-red-400 text-lg text-center">×</button>
                 </div>
               ))}
-              <div className="grid grid-cols-3 gap-4 mt-3">
+              <div className="grid grid-cols-4 gap-4 mt-3">
                 <div><label className="block text-xs text-gray-500 mb-1">Subtotal</label><input readOnly value={fmt(form.subtotal)} className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50"/></div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Tax ($)</label>
-                  <input type="number" value={form.tax} onChange={e=>setForm(f=>({...f,tax:+e.target.value,total:f.subtotal+ +e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+                  <label className="block text-xs text-gray-500 mb-1">Tax (%)</label>
+                  <input type="number" min="0" max="100" step="0.1" value={form.taxPct} onChange={e => {
+                    const pct = +e.target.value;
+                    const taxAmt = +form.subtotal * (pct / 100);
+                    setForm(f => ({ ...f, taxPct: pct, tax: taxAmt, total: +f.subtotal + taxAmt }));
+                  }} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
                 </div>
+                <div><label className="block text-xs text-gray-500 mb-1">Tax ($)</label><input readOnly value={fmt(form.tax)} className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50"/></div>
                 <div><label className="block text-xs text-gray-500 mb-1">Total</label><input readOnly value={fmt(form.total)} className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 font-bold"/></div>
               </div>
             </div>
@@ -286,6 +348,7 @@ export default function Invoices() {
       {payModal && (
         <Modal title={`Record Payment — INV-${String(payModal.id).padStart(4,'0')}`} onClose={()=>setPayModal(null)}>
           <form onSubmit={savePay} className="space-y-4">
+            {payError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{payError}</p>}
             <div className="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
               <div className="flex justify-between"><span className="text-gray-500">Customer</span><strong>{payModal.customer?.name}</strong></div>
               <div className="flex justify-between"><span className="text-gray-500">Invoice Total</span><span>{fmt(payModal.total)}</span></div>
@@ -301,6 +364,7 @@ export default function Invoices() {
                 <select value={payForm.method} onChange={e=>setPayForm(f=>({...f,method:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
                   <option value="bank_transfer">Bank Transfer</option>
                   <option value="cash">Cash</option>
+                  <option value="mobile_money">Mobile Money</option>
                   <option value="cheque">Cheque</option>
                   <option value="card">Card</option>
                 </select>

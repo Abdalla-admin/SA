@@ -3,7 +3,7 @@ import client from '../api/client';
 import Modal from '../components/Modal';
 import { useDialog } from '../context/DialogContext';
 
-const empty = { name:'', email:'', phone:'', address:'', category:'', notes:'' };
+const empty = { name:'', contactPerson:'', email:'', phone:'', address:'', category:'', notes:'' };
 
 const Field = ({ label, value }) => (
   <div>
@@ -50,12 +50,13 @@ export default function Vendors() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>{['Name','Item Description','Email','Phone','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['Name','Contact Person','Item Description','Email','Phone','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {items.map(v=>(
               <tr key={v.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium">{v.name}</td>
+                <td className="px-4 py-3 text-gray-600 text-xs">{v.contactPerson||'—'}</td>
                 <td className="px-4 py-3 text-gray-600 text-xs">{v.category||'—'}</td>
                 <td className="px-4 py-3 text-gray-500">{v.email||'—'}</td>
                 <td className="px-4 py-3">{v.phone||'—'}</td>
@@ -77,6 +78,7 @@ export default function Vendors() {
         <Modal title={viewed.name} onClose={()=>setModal(null)}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
+              <Field label="Contact Person"   value={viewed.contactPerson} />
               <Field label="Item Description" value={viewed.category} />
               <Field label="Email"            value={viewed.email} />
               <Field label="Phone"            value={viewed.phone} />
@@ -99,7 +101,7 @@ export default function Vendors() {
       {modal === 'form' && (
         <Modal title={form.id?'Edit Vendor':'New Vendor'} onClose={()=>setModal(null)}>
           <form onSubmit={save} className="space-y-3">
-            {[['Name','name','text',true],['Item Description','category','text'],['Email','email','email'],['Phone','phone','tel'],['Address','address','text']].map(([l,k,t,req])=>(
+            {[['Name','name','text',true],['Contact Person','contactPerson','text'],['Item Description','category','text'],['Email','email','email'],['Phone','phone','tel'],['Address','address','text']].map(([l,k,t,req])=>(
               <div key={k}>
                 <label className="block text-xs font-medium text-gray-600 mb-1">{l}</label>
                 <input type={t} required={!!req} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>

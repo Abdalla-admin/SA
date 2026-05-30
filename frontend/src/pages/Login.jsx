@@ -26,9 +26,9 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-3">☀️</div>
+          <img src="/logo.png" alt="Sun Aratinga" className="w-20 h-20 object-contain mx-auto mb-3" />
           <h1 className="text-2xl font-bold text-gray-900">Sun Aratinga</h1>
-          <p className="text-gray-500 text-sm mt-1">Solar Management System</p>
+          <p className="text-gray-500 text-sm mt-1">Sunlight Into Electricity</p>
         </div>
         {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
         <form onSubmit={submit} className="space-y-4">

@@ -3,16 +3,19 @@ import client from '../api/client';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
 import { useDialog } from '../context/DialogContext';
+import { purCode } from '../utils/docCode';
 
 const emptyForm = { vendorId:'', bankAccountId:'', notes:'', items:[{materialId:'',quantity:1,unitCost:0,totalCost:0}] };
 
 const printPO = (po) => {
+  const code = purCode(po.id, po.createdAt || po.orderDate);
   const rows = (po.items||[]).map(i => `<tr><td>${i.material?.name||'—'} (${i.material?.unit||''})</td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">$ ${(+i.unitCost).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td style="text-align:right">$ ${(+i.totalCost).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`).join('');
+  const logo = window.location.origin + '/logo.png';
   const w = window.open('','_blank','width=800,height=600');
-  w.document.write(`<!DOCTYPE html><html><head><title>PO-${String(po.id).padStart(4,'0')}</title>
-  <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}h2{color:#ea580c}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:#f9fafb;text-align:left;padding:8px 10px;font-size:12px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb}td{padding:10px;border-bottom:1px solid #f3f4f6;font-size:13px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-size:13px}.total{text-align:right;font-size:16px;font-weight:bold;margin-top:8px;color:#ea580c}@page{margin:20mm}</style>
+  w.document.write(`<!DOCTYPE html><html><head><title>${code}</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:#f9fafb;text-align:left;padding:8px 10px;font-size:12px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb}td{padding:10px;border-bottom:1px solid #f3f4f6;font-size:13px}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #ea580c;padding-bottom:12px;margin-bottom:20px}.co-wrap{display:flex;align-items:center;gap:10px}.company-name{font-size:20px;font-weight:bold;color:#1e3a5f}.company-tag{font-size:11px;color:#ea580c;font-weight:600}.doc-code{font-size:11px;color:#6b7280;margin-top:4px}.doc-title{font-size:22px;font-weight:bold;color:#ea580c}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-size:13px}.total{text-align:right;font-size:16px;font-weight:bold;margin-top:8px;color:#ea580c}@page{margin:20mm}</style>
   </head><body>
-  <h2>Purchase Order PO-${String(po.id).padStart(4,'0')}</h2>
+  <div class="header"><div class="co-wrap"><img src="${logo}" style="height:55px;object-fit:contain" onerror="this.style.display='none'"><div><div class="company-name">SUN ARATINGA</div><div class="company-tag">SUNLIGHT INTO ELECTRICITY</div></div></div><div style="text-align:right"><div class="doc-title">PURCHASE ORDER</div><div class="doc-code">${code}</div></div></div>
   <div class="meta"><div><strong>Vendor:</strong> ${po.vendor?.name||'—'}</div><div><strong>Status:</strong> ${po.status||'—'}</div><div><strong>Order Date:</strong> ${new Date(po.orderDate).toLocaleDateString()}</div><div><strong>Bank Account:</strong> ${po.bankAccount?.name||'Cash/Expense'}</div></div>
   ${po.notes?`<p style="font-size:13px"><strong>Notes:</strong> ${po.notes}</p>`:''}
   <table><thead><tr><th>Material</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>

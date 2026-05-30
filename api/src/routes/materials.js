@@ -37,4 +37,63 @@ router.delete('/:id', auth, async (req, res) => {
   res.json({ success: true });
 });
 
+// Sell multiple inventory items to a customer in one transaction
+router.post('/sell', auth, async (req, res) => {
+  const { customerId, items, dueDate, notes } = req.body;
+  if (!items?.length) return res.status(400).json({ error: 'No items provided' });
+
+  // Load all materials and validate stock
+  const materials = await prisma.material.findMany({
+    where: { id: { in: items.map(i => +i.materialId) } },
+  });
+  const matMap = Object.fromEntries(materials.map(m => [m.id, m]));
+
+  for (const item of items) {
+    const mat = matMap[+item.materialId];
+    if (!mat) return res.status(400).json({ error: `Material not found` });
+    if (mat.quantity < +item.quantity) {
+      return res.status(400).json({ error: `Only ${mat.quantity} ${mat.unit} of "${mat.name}" in stock` });
+    }
+  }
+
+  const subtotal = items.reduce((sum, i) => sum + +i.quantity * +i.unitPrice, 0);
+
+  const ops = [
+    // Deduct each material
+    ...items.map(i =>
+      prisma.material.update({ where: { id: +i.materialId }, data: { quantity: { decrement: +i.quantity } } })
+    ),
+    // Create single invoice with all line items
+    prisma.invoice.create({
+      data: {
+        customerId: +customerId,
+        type: 'SALE',
+        subtotal,
+        tax: 0,
+        total: subtotal,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        notes,
+        items: {
+          create: items.map(i => {
+            const mat = matMap[+i.materialId];
+            return {
+              description: `${mat.name}${mat.brand ? ` (${mat.brand})` : ''}`,
+              quantity: +i.quantity,
+              unitPrice: +i.unitPrice,
+              total: +i.quantity * +i.unitPrice,
+            };
+          }),
+        },
+      },
+      include: { customer: { select: { id: true, name: true } }, items: true, payments: true, contract: true },
+    }),
+  ];
+
+  const results = await prisma.$transaction(ops);
+  const invoice = results[results.length - 1];
+  const updatedMaterials = results.slice(0, items.length);
+
+  res.status(201).json({ materials: updatedMaterials, invoice });
+});
+
 module.exports = router;

@@ -3,18 +3,21 @@ import client from '../api/client';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
 import { useDialog } from '../context/DialogContext';
+import { invCode } from '../utils/docCode';
 
 const STATUSES = ['PLANNING','DESIGN','PROCUREMENT','EXECUTION','COMMISSIONING','COMPLETED','ON_HOLD'];
 const STATUS_PROGRESS = { PLANNING:5, DESIGN:20, PROCUREMENT:40, EXECUTION:65, COMMISSIONING:85, COMPLETED:100, ON_HOLD:null };
 const empty = { name:'', customerId:'', systemCapacity:'', status:'PLANNING', budget:'', startDate:'', targetDate:'', progressPct:0, notes:'', warrantyStartDate:'', warrantyEndDate:'', warrantyTerms:'', warrantyMaintenancePeriod:'' };
 
 export default function Projects() {
-  const { prompt } = useDialog();
-  const [projects, setProjects] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [modal, setModal] = useState(null);
-  const [form, setForm] = useState(empty);
-  const [selected, setSelected] = useState(null);
+  const { confirm } = useDialog();
+  const [projects, setProjects]     = useState([]);
+  const [customers, setCustomers]   = useState([]);
+  const [modal, setModal]           = useState(null);
+  const [form, setForm]             = useState(empty);
+  const [selected, setSelected]     = useState(null);
+  const [allInvoices, setAllInvoices] = useState([]);
+  const [linkInvId, setLinkInvId]   = useState('');
 
   useEffect(() => {
     client.get('/projects').then(r => setProjects(r.data));
@@ -49,8 +52,48 @@ export default function Projects() {
   };
 
   const openDetail = async (p) => {
-    const { data } = await client.get(`/projects/${p.id}`);
-    setSelected(data); setModal('detail');
+    const [{ data }, { data: invs }] = await Promise.all([
+      client.get(`/projects/${p.id}`),
+      client.get('/invoices'),
+    ]);
+    setSelected(data);
+    setAllInvoices(invs);
+    setLinkInvId('');
+    setModal('detail');
+  };
+
+  const linkInvoice = async () => {
+    if (!linkInvId) return;
+    await client.patch(`/invoices/${linkInvId}/project`, { projectId: selected.id });
+    const { data } = await client.get(`/projects/${selected.id}`);
+    setSelected(data);
+    setLinkInvId('');
+  };
+
+  const unlinkInvoice = async (invId) => {
+    await client.patch(`/invoices/${invId}/project`, { projectId: null });
+    const { data } = await client.get(`/projects/${selected.id}`);
+    setSelected(data);
+  };
+
+  const del = async id => {
+    if (!await confirm('Delete this project? This action cannot be undone.')) return;
+    await client.delete(`/projects/${id}`);
+    setProjects(p => p.filter(x => x.id !== id));
+    if (modal === 'detail') setModal(null);
+  };
+
+  const openEdit = p => {
+    const w = p.warranty;
+    setForm({
+      ...p,
+      customerId: p.customerId || '',
+      warrantyStartDate: w?.startDate ? w.startDate.slice(0,10) : '',
+      warrantyEndDate:   w?.endDate   ? w.endDate.slice(0,10)   : '',
+      warrantyTerms:     w?.terms     || '',
+      warrantyMaintenancePeriod: w?.maintenancePeriod || '',
+    });
+    setModal('form');
   };
 
   return (
@@ -62,7 +105,7 @@ export default function Projects() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {projects.map(p => (
-          <div key={p.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer" onClick={() => openDetail(p)}>
+          <div key={p.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col">
             <div className="flex justify-between items-start mb-3">
               <div>
                 <h3 className="font-semibold text-gray-900">{p.name}</h3>
@@ -70,7 +113,7 @@ export default function Projects() {
               </div>
               <StatusBadge status={p.status} />
             </div>
-            <div className="space-y-1.5 text-sm text-gray-600">
+            <div className="space-y-1.5 text-sm text-gray-600 flex-1">
               {p.systemCapacity && <div>⚡ {p.systemCapacity} kW</div>}
               {p.budget && <div>💰 $ {p.budget.toLocaleString()}</div>}
               {p.targetDate && <div>📅 Target: {new Date(p.targetDate).toLocaleDateString()}</div>}
@@ -82,6 +125,11 @@ export default function Projects() {
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div className="h-full bg-orange-500 rounded-full" style={{ width: `${p.progressPct}%` }} />
               </div>
+            </div>
+            <div className="flex gap-2 mt-4 pt-3 border-t border-gray-50">
+              <button onClick={() => openDetail(p)} className="flex-1 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 text-xs font-medium">View</button>
+              <button onClick={() => openEdit(p)} className="flex-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
+              <button onClick={() => del(p.id)} className="flex-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Delete</button>
             </div>
           </div>
         ))}
@@ -202,18 +250,77 @@ export default function Projects() {
               </div>
             )}
 
+            {/* Invoices */}
+            <div className="border border-gray-100 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-4 py-2 flex justify-between items-center">
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Invoices</p>
+                <span className="text-xs text-gray-400">{selected.invoices?.length || 0} linked</span>
+              </div>
+
+              {/* Link existing invoice */}
+              <div className="px-4 py-2 border-b border-gray-100 flex gap-2 items-center">
+                <select value={linkInvId} onChange={e => setLinkInvId(e.target.value)}
+                  className="flex-1 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-400">
+                  <option value="">— Link an existing invoice —</option>
+                  {allInvoices
+                    .filter(i => !i.projectId)
+                    .map(i => (
+                      <option key={i.id} value={i.id}>
+                        {invCode(i.id, i.createdAt)} — {i.customer?.name || '—'} — $ {(+i.total).toLocaleString()} ({i.status})
+                      </option>
+                    ))}
+                </select>
+                <button onClick={linkInvoice} disabled={!linkInvId}
+                  className="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium disabled:opacity-40">
+                  Link
+                </button>
+              </div>
+
+              {selected.invoices?.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead className="border-t border-gray-100 text-xs text-gray-400 uppercase">
+                    <tr>{['Code','Customer','Status','Total','Paid','Balance',''].map(h => <th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {selected.invoices.map(inv => {
+                      const paid    = (inv.payments||[]).reduce((s,p) => s + p.amount, 0);
+                      const balance = (+inv.total) - paid;
+                      return (
+                        <tr key={inv.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 font-mono text-xs text-gray-500">{invCode(inv.id, inv.createdAt)}</td>
+                          <td className="px-3 py-2 text-xs text-gray-600">{inv.customer?.name||'—'}</td>
+                          <td className="px-3 py-2"><StatusBadge status={inv.status} /></td>
+                          <td className="px-3 py-2 font-medium">$ {(+inv.total).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                          <td className="px-3 py-2 text-green-600">$ {paid.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                          <td className="px-3 py-2">
+                            {balance > 0
+                              ? <span className="text-red-600 font-medium">$ {balance.toLocaleString('en-US',{minimumFractionDigits:2})}</span>
+                              : <span className="text-green-500 text-xs font-semibold">Settled</span>}
+                          </td>
+                          <td className="px-3 py-2">
+                            <button onClick={() => unlinkInvoice(inv.id)} className="text-xs text-gray-400 hover:text-red-500">Unlink</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-gray-50 border-t border-gray-100 text-xs font-semibold">
+                    <tr>
+                      <td colSpan={3} className="px-3 py-2 text-gray-500">Total</td>
+                      <td className="px-3 py-2">$ {selected.invoices.reduce((s,i) => s + (+i.total||0), 0).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                      <td className="px-3 py-2 text-green-600">$ {selected.invoices.reduce((s,i) => s + (i.payments||[]).reduce((ps,p) => ps + p.amount, 0), 0).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              ) : (
+                <p className="px-4 py-6 text-center text-sm text-gray-400">No invoices linked yet. Use the dropdown above to link existing invoices.</p>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2 pt-3 border-t">
-              <button onClick={() => {
-                const w = selected.warranty;
-                setForm({
-                  ...selected,
-                  warrantyStartDate: w?.startDate ? w.startDate.slice(0,10) : '',
-                  warrantyEndDate:   w?.endDate   ? w.endDate.slice(0,10)   : '',
-                  warrantyTerms:     w?.terms     || '',
-                  warrantyMaintenancePeriod: w?.maintenancePeriod || '',
-                });
-                setModal('form');
-              }} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm">Edit Project</button>
+              <button onClick={() => del(selected.id)} className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium">Delete</button>
+              <button onClick={() => openEdit(selected)} className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium">Edit Project</button>
             </div>
           </div>
         </Modal>
