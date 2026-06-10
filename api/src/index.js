@@ -57,7 +57,9 @@ app.use('/api/leave',         require('./routes/leave'));
 app.use('/api/reports',       require('./routes/reports'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/users',         require('./routes/users'));
-app.use('/api/permissions',   require('./routes/permissions'));
+app.use('/api/roles',         require('./routes/roles'));
+app.use('/api/permissions',       require('./routes/permissions'));
+app.use('/api/company-settings',  require('./routes/companySettings'));
 
 app.get('/health', (_, res) => res.json({ status: 'ok', app: 'Sun Aratinga API' }));
 

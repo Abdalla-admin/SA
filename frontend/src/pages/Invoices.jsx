@@ -5,7 +5,7 @@ import StatusBadge from '../components/StatusBadge';
 import { invCode } from '../utils/docCode';
 
 const emptyItem = () => ({ materialId:'', description:'', quantity:1, unitPrice:0 });
-const emptyForm = { customerId:'', contractId:'', projectId:'', dueDate:'', taxPct:0, subtotal:0, tax:0, total:0, notes:'', items:[emptyItem()] };
+const emptyForm = { customerId:'', contractId:'', projectId:'', bankAccountId:'', paymentTerms:'', dueDate:'', taxPct:0, subtotal:0, tax:0, total:0, notes:'', items:[emptyItem()] };
 const emptyPay  = { amount:'', method:'bank_transfer', bankAccountId:'', paidAt:'', notes:'' };
 const fmt = n => '$ ' + (+n||0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
@@ -15,6 +15,7 @@ export default function Invoices() {
   const [projects, setProjects]     = useState([]);
   const [materials, setMaterials]   = useState([]);
   const [bankAccounts, setBankAccts]= useState([]);
+  const [settings, setSettings]     = useState(null);
   const [statusFilter, setStatus]   = useState('');
   const [modal, setModal]           = useState(false);
   const [viewModal, setViewModal]   = useState(null);
@@ -34,6 +35,31 @@ export default function Invoices() {
     if (viewModal?.id === inv.id) setViewModal(data);
   };
 
+  const buildPaymentSection = (s) => {
+    if (!s) return '';
+    const cols = [
+      { label: s.bank1Label, details: s.bank1Details },
+      { label: s.bank2Label, details: s.bank2Details },
+      { label: s.bank3Label, details: s.bank3Details },
+    ].filter(c => c.details);
+    if (!cols.length) return '';
+    const colsHtml = cols.map(c => `
+      <td style="padding:8px;border:1px solid #e5e7eb;vertical-align:top;font-size:11px;line-height:1.7">
+        ${(c.details||'').split('\n').join('<br>')}
+      </td>`).join('');
+    const headerHtml = cols.map(c => `<th style="background:#f9fafb;padding:6px 8px;border:1px solid #e5e7eb;text-align:left;font-size:11px;font-weight:600">${c.label||''}</th>`).join('');
+    return `
+      <div style="margin-top:24px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr><th colspan="${cols.length}" style="background:#f3f4f6;padding:8px;text-align:center;border:1px solid #e5e7eb;font-weight:bold;letter-spacing:0.05em">PAY TO</th></tr>
+            <tr>${headerHtml}</tr>
+          </thead>
+          <tbody><tr>${colsHtml}</tr></tbody>
+        </table>
+      </div>`;
+  };
+
   const printInvoice = (inv) => {
     const code = invCode(inv.id, inv.createdAt || inv.issueDate);
     const rows = (inv.items||[]).map(i => `<tr><td>${i.description}</td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">$ ${(+i.unitPrice).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td style="text-align:right">$ ${(+(i.total||i.quantity*i.unitPrice)).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`).join('');
@@ -46,6 +72,8 @@ export default function Invoices() {
     <div class="meta"><div><strong>Customer:</strong> ${inv.customer?.name||'—'}</div><div><strong>Status:</strong> ${inv.status||'—'}</div><div><strong>Issue Date:</strong> ${inv.issueDate?new Date(inv.issueDate).toLocaleDateString():'—'}</div><div><strong>Due Date:</strong> ${inv.dueDate?new Date(inv.dueDate).toLocaleDateString():'—'}</div></div>
     <table><thead><tr><th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="totals"><p>Subtotal: $ ${(+inv.subtotal).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p>Tax: $ ${(+inv.tax).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p class="grand">Total: $ ${(+inv.total).toLocaleString('en-US',{minimumFractionDigits:2})}</p></div>
+    ${buildPaymentSection(settings)}
+    ${settings?.termsAndConditions ? `<div style="margin-top:10px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:12px;color:#c2410c"><strong>Payment Policy:</strong> ${settings.termsAndConditions}</div>` : ''}
     <script>window.print();<\/script></body></html>`);
     w.document.close();
   };
@@ -56,6 +84,7 @@ export default function Invoices() {
     client.get('/bank-accounts').then(r => setBankAccts(r.data));
     client.get('/projects').then(r => setProjects(r.data));
     client.get('/materials').then(r => setMaterials(r.data));
+    client.get('/company-settings').then(r => setSettings(r.data)).catch(()=>{});
   }, [statusFilter]);
 
   const setLine = (idx, field, val) => {
@@ -75,7 +104,7 @@ export default function Invoices() {
       ...its[idx],
       materialId:  matId,
       description: mat ? mat.name : its[idx].description,
-      unitPrice:   mat ? mat.unitCost : its[idx].unitPrice,
+      unitPrice:   mat ? (mat.sellingPrice || mat.unitCost) : its[idx].unitPrice,
     };
     const sub = its.reduce((s,i) => s + +i.quantity * +i.unitPrice, 0);
     setForm(f => {
@@ -87,11 +116,13 @@ export default function Invoices() {
   const openEdit = async inv => {
     const { data } = await client.get(`/invoices/${inv.id}`);
     setForm({
-      id:         data.id,
-      customerId: data.customerId || '',
-      contractId: data.contractId || '',
-      projectId:  data.projectId  || '',
-      dueDate:    data.dueDate ? data.dueDate.slice(0,10) : '',
+      id:            data.id,
+      customerId:    data.customerId    || '',
+      contractId:    data.contractId    || '',
+      projectId:     data.projectId     || '',
+      bankAccountId: data.bankAccountId || '',
+      paymentTerms:  data.paymentTerms  || '',
+      dueDate:       data.dueDate ? data.dueDate.slice(0,10) : '',
       taxPct:     data.subtotal > 0 ? +((+data.tax / +data.subtotal) * 100).toFixed(2) : 0,
       subtotal:   data.subtotal,
       tax:        data.tax,
@@ -105,10 +136,12 @@ export default function Invoices() {
   const save = async e => {
     e.preventDefault();
     const payload = {
-      customerId: form.customerId ? +form.customerId : null,
-      contractId: form.contractId ? +form.contractId : null,
-      projectId:  form.projectId  ? +form.projectId  : null,
-      dueDate:    form.dueDate || null,
+      customerId:    form.customerId    ? +form.customerId    : null,
+      contractId:    form.contractId    ? +form.contractId    : null,
+      projectId:     form.projectId     ? +form.projectId     : null,
+      bankAccountId: form.bankAccountId ? +form.bankAccountId : null,
+      paymentTerms:  form.paymentTerms  || null,
+      dueDate:       form.dueDate || null,
       subtotal:   +form.subtotal,
       tax:        +form.tax,
       total:      +form.total,
@@ -243,6 +276,13 @@ export default function Invoices() {
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Due Date</label>
                 <input type="date" value={form.dueDate} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Pay to Bank Account</label>
+                <select value={form.bankAccountId||''} onChange={e=>setForm(f=>({...f,bankAccountId:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                  <option value="">— None —</option>
+                  {bankAccounts.map(b=><option key={b.id} value={b.id}>{b.name}{b.bankName?` · ${b.bankName}`:''}</option>)}
+                </select>
               </div>
             </div>
             <div>

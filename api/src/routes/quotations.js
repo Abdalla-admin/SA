@@ -3,8 +3,9 @@ const prisma = require('../middleware/prisma');
 const { auth } = require('../middleware/auth');
 
 const include = {
-  customer: { select: { id: true, name: true } },
-  project:  { select: { id: true, name: true } },
+  customer:    { select: { id: true, name: true } },
+  project:     { select: { id: true, name: true } },
+  bankAccount: { select: { id: true, name: true, bankName: true, accountNumber: true } },
   items: { include: { material: { select: { id: true, name: true, unit: true } } } },
   invoice: { select: { id: true, status: true } },
 };
@@ -34,7 +35,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 router.put('/:id', auth, async (req, res) => {
-  const { id, items, customer, invoice, createdAt, ...data } = req.body;
+  const { id, items, customer, project, bankAccount, invoice, createdAt, ...data } = req.body;
   const qid = +req.params.id;
   if (items) {
     const [, quotation] = await prisma.$transaction([
@@ -50,7 +51,10 @@ router.delete('/:id', auth, async (req, res) => {
   const q = await prisma.quotation.findUnique({ where: { id: +req.params.id } });
   if (!q) return res.status(404).json({ error: 'Not found' });
   if (q.status === 'CONVERTED') return res.status(400).json({ error: 'Cannot delete a converted quotation' });
-  await prisma.quotation.delete({ where: { id: +req.params.id } });
+  await prisma.$transaction([
+    prisma.quotationItem.deleteMany({ where: { quotationId: +req.params.id } }),
+    prisma.quotation.delete({ where: { id: +req.params.id } }),
+  ]);
   res.json({ success: true });
 });
 
@@ -62,9 +66,11 @@ router.post('/:id/convert', auth, async (req, res) => {
     prisma.quotation.update({ where: { id: q.id }, data: { status: 'CONVERTED' } }),
     prisma.invoice.create({
       data: {
-        customerId:  q.customerId,
-        projectId:   q.projectId || undefined,
-        quotationId: q.id,
+        customerId:    q.customerId,
+        projectId:     q.projectId     || undefined,
+        bankAccountId: q.bankAccountId || undefined,
+        paymentTerms:  q.paymentTerms  || undefined,
+        quotationId:   q.id,
         subtotal:    q.subtotal,
         tax:         q.tax,
         total:       q.total,

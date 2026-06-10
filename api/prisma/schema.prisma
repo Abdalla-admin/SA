@@ -7,16 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  CEO
-  FINANCE_MANAGER
-  ENGINEERING_MANAGER
-  PROJECT_COORDINATOR
-  ACCOUNTANT
-  TECHNICIAN
-}
-
 enum LeadStatus {
   NEW
   SURVEY_SCHEDULED
@@ -93,7 +83,7 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      Role     @default(TECHNICIAN)
+  role      String   @default("TECHNICIAN")
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -129,13 +119,20 @@ model RolePermission {
   @@unique([role, module])
 }
 
+model CustomRole {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  color     String   @default("#6b7280")
+  createdAt DateTime @default(now())
+}
+
 model Customer {
   id               Int       @id @default(autoincrement())
   name             String
   email            String?
   phone            String?
   address          String?
-  siteLocation     String?
+  responsiblePerson String?
   notes            String?
   registrationDate DateTime?
   createdAt        DateTime  @default(now())
@@ -382,16 +379,17 @@ model MaintenanceRequest {
 }
 
 model Material {
-  id        Int      @id @default(autoincrement())
-  name      String
-  category  String?
-  unit      String   @default("pcs")
-  quantity  Float    @default(0)
-  minStock  Float    @default(0)
-  unitCost  Float    @default(0)
-  brand     String?
-  specs     String?
-  createdAt DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  name         String
+  category     String?
+  unit         String   @default("pcs")
+  quantity     Float    @default(0)
+  minStock     Float    @default(0)
+  unitCost     Float    @default(0)
+  sellingPrice Float    @default(0)
+  brand        String?
+  specs        String?
+  createdAt    DateTime @default(now())
 
   purchaseItems  PurchaseItem[]
   allocations    MaterialAllocation[]
@@ -443,8 +441,11 @@ model Quotation {
   customer       Customer?       @relation(fields: [customerId], references: [id])
   projectId      Int?
   project        Project?        @relation(fields: [projectId], references: [id])
+  bankAccountId  Int?
+  bankAccount    BankAccount?    @relation(fields: [bankAccountId], references: [id])
   status         QuotationStatus @default(DRAFT)
   validUntil     DateTime?
+  paymentTerms   String?
   subtotal       Float           @default(0)
   tax            Float           @default(0)
   total          Float           @default(0)
@@ -487,24 +488,27 @@ model Contract {
 }
 
 model Invoice {
-  id          Int           @id @default(autoincrement())
-  customerId  Int?
-  customer    Customer?     @relation(fields: [customerId], references: [id])
-  contractId  Int?
-  contract    Contract?     @relation(fields: [contractId], references: [id])
-  quotationId Int?          @unique
-  quotation   Quotation?    @relation(fields: [quotationId], references: [id])
-  projectId   Int?
-  project     Project?      @relation(fields: [projectId], references: [id])
-  type        String        @default("INVOICE")
-  status      InvoiceStatus @default(UNPAID)
-  issueDate   DateTime      @default(now())
-  dueDate     DateTime?
-  subtotal    Float         @default(0)
-  tax         Float         @default(0)
-  total       Float         @default(0)
-  notes       String?
-  createdAt   DateTime      @default(now())
+  id            Int           @id @default(autoincrement())
+  customerId    Int?
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  contractId    Int?
+  contract      Contract?     @relation(fields: [contractId], references: [id])
+  quotationId   Int?          @unique
+  quotation     Quotation?    @relation(fields: [quotationId], references: [id])
+  projectId     Int?
+  project       Project?      @relation(fields: [projectId], references: [id])
+  bankAccountId Int?
+  bankAccount   BankAccount?  @relation(fields: [bankAccountId], references: [id])
+  type          String        @default("INVOICE")
+  status        InvoiceStatus @default(UNPAID)
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime?
+  paymentTerms  String?
+  subtotal      Float         @default(0)
+  tax           Float         @default(0)
+  total         Float         @default(0)
+  notes         String?
+  createdAt     DateTime      @default(now())
 
   payments Payment[]
   items    InvoiceItem[]
@@ -561,6 +565,8 @@ model BankAccount {
   payments      Payment[]
   expenses      Expense[]
   purchases     Purchase[]
+  invoices      Invoice[]
+  quotations    Quotation[]
   transfersFrom FundTransfer[]   @relation("FromAccount")
   transfersTo   FundTransfer[]   @relation("ToAccount")
   transactions  BankTransaction[]
@@ -626,6 +632,18 @@ model Payslip {
   netPay      Float
   paidAt      DateTime?
   createdAt   DateTime @default(now())
+}
+
+model CompanySettings {
+  id                 Int      @id @default(1)
+  bank1Label         String?
+  bank1Details       String?
+  bank2Label         String?
+  bank2Details       String?
+  bank3Label         String?
+  bank3Details       String?
+  termsAndConditions String?
+  updatedAt          DateTime @updatedAt
 }
 
 model Notification {

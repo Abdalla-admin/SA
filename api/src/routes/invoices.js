@@ -3,9 +3,10 @@ const prisma = require('../middleware/prisma');
 const { auth } = require('../middleware/auth');
 
 const include = {
-  customer: { select: { id: true, name: true } },
-  contract: { select: { id: true, title: true } },
-  project: { select: { id: true, name: true } },
+  customer:    { select: { id: true, name: true } },
+  contract:    { select: { id: true, title: true } },
+  project:     { select: { id: true, name: true } },
+  bankAccount: { select: { id: true, name: true, bankName: true, accountNumber: true } },
   items: { include: { material: { select: { id: true, name: true, unit: true } } } },
   payments: true,
 };
@@ -47,7 +48,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 router.put('/:id', auth, async (req, res) => {
-  const { id, items, customer, contract, project, payments, createdAt, ...data } = req.body;
+  const { id, items, customer, contract, project, bankAccount, payments, createdAt, ...data } = req.body;
   const invoiceId = +req.params.id;
   const [, invoice] = await prisma.$transaction([
     prisma.invoiceItem.deleteMany({ where: { invoiceId } }),

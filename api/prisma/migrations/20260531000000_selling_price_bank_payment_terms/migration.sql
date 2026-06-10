@@ -1,0 +1,17 @@
+ALTER TABLE "Material" ADD COLUMN IF NOT EXISTS "sellingPrice" DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+ALTER TABLE "Invoice"   ADD COLUMN IF NOT EXISTS "bankAccountId" INTEGER;
+ALTER TABLE "Invoice"   ADD COLUMN IF NOT EXISTS "paymentTerms"  TEXT;
+
+ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS "bankAccountId" INTEGER;
+ALTER TABLE "Quotation" ADD COLUMN IF NOT EXISTS "paymentTerms"  TEXT;
+
+DO $$ BEGIN
+  ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_bankAccountId_fkey"
+    FOREIGN KEY ("bankAccountId") REFERENCES "BankAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Quotation" ADD CONSTRAINT "Quotation_bankAccountId_fkey"
+    FOREIGN KEY ("bankAccountId") REFERENCES "BankAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

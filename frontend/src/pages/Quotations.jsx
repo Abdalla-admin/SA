@@ -6,31 +6,16 @@ import { useDialog } from '../context/DialogContext';
 import { boqCode } from '../utils/docCode';
 
 const emptyItem = () => ({ materialId:'', description:'', quantity:1, unitPrice:0, total:0 });
-const emptyForm = { customerId:'', projectId:'', validUntil:'', taxPct:0, subtotal:0, tax:0, total:0, notes:'', items:[emptyItem()] };
-
-const printQuotation = (q) => {
-  const code = boqCode(q.id, q.createdAt);
-  const rows = (q.items||[]).map(i => `<tr><td>${i.description}</td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">$ ${(+i.unitPrice).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td style="text-align:right">$ ${(+i.total||+i.quantity*+i.unitPrice).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`).join('');
-  const logo = window.location.origin + '/logo.png';
-  const w = window.open('','_blank','width=800,height=600');
-  w.document.write(`<!DOCTYPE html><html><head><title>${code}</title>
-  <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:#f9fafb;text-align:left;padding:8px 10px;font-size:12px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb}td{padding:10px;border-bottom:1px solid #f3f4f6;font-size:13px}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #ea580c;padding-bottom:12px;margin-bottom:20px}.co-wrap{display:flex;align-items:center;gap:10px}.company-name{font-size:20px;font-weight:bold;color:#1e3a5f}.company-tag{font-size:11px;color:#ea580c;font-weight:600}.doc-code{font-size:11px;color:#6b7280;margin-top:4px}.doc-title{font-size:22px;font-weight:bold;color:#ea580c}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-size:13px}.totals{text-align:right;margin-top:8px}.totals p{margin:4px 0;font-size:13px}.totals .grand{font-size:16px;font-weight:bold;color:#ea580c}@page{margin:20mm}</style>
-  </head><body>
-  <div class="header"><div class="co-wrap"><img src="${logo}" style="height:55px;object-fit:contain" onerror="this.style.display='none'"><div><div class="company-name">SUN ARATINGA</div><div class="company-tag">SUNLIGHT INTO ELECTRICITY</div></div></div><div style="text-align:right"><div class="doc-title">QUOTATION / BOQ</div><div class="doc-code">${code}</div></div></div>
-  <div class="meta"><div><strong>Customer:</strong> ${q.customer?.name||'—'}</div><div><strong>Status:</strong> ${q.status||'—'}</div><div><strong>Valid Until:</strong> ${q.validUntil?new Date(q.validUntil).toLocaleDateString():'—'}</div></div>
-  <table><thead><tr><th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="totals"><p>Subtotal: $ ${(+q.subtotal).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p>Tax: $ ${(+q.tax).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p class="grand">Total: $ ${(+q.total).toLocaleString('en-US',{minimumFractionDigits:2})}</p></div>
-  ${q.notes?`<p style="margin-top:16px;font-size:12px;color:#6b7280"><strong>Notes:</strong> ${q.notes}</p>`:''}
-  <script>window.print();<\/script></body></html>`);
-  w.document.close();
-};
+const emptyForm = { customerId:'', projectId:'', bankAccountId:'', paymentTerms:'', validUntil:'', taxPct:0, subtotal:0, tax:0, total:0, notes:'', items:[emptyItem()] };
 
 export default function Quotations() {
   const { confirm } = useDialog();
-  const [items, setItems]         = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [projects, setProjects]   = useState([]);
-  const [materials, setMaterials] = useState([]);
+  const [items, setItems]               = useState([]);
+  const [customers, setCustomers]       = useState([]);
+  const [projects, setProjects]         = useState([]);
+  const [materials, setMaterials]       = useState([]);
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [settings, setSettings]         = useState(null);
   const [modal, setModal]         = useState(null);
   const [form, setForm]           = useState(emptyForm);
   const [viewed, setViewed]       = useState(null);
@@ -40,9 +25,55 @@ export default function Quotations() {
   useEffect(() => {
     client.get('/quotations').then(r => setItems(r.data));
     client.get('/customers').then(r => setCustomers(r.data));
+    client.get('/bank-accounts').then(r => setBankAccounts(r.data));
+    client.get('/company-settings').then(r => setSettings(r.data)).catch(()=>{});
     client.get('/projects').then(r => setProjects(r.data));
     client.get('/materials').then(r => setMaterials(r.data));
   }, []);
+
+  const buildPaymentSection = (s) => {
+    if (!s) return '';
+    const cols = [
+      { label: s.bank1Label, details: s.bank1Details },
+      { label: s.bank2Label, details: s.bank2Details },
+      { label: s.bank3Label, details: s.bank3Details },
+    ].filter(c => c.details);
+    if (!cols.length) return '';
+    const colsHtml = cols.map(c => `
+      <td style="padding:8px;border:1px solid #e5e7eb;vertical-align:top;font-size:11px;line-height:1.7">
+        ${(c.details||'').split('\n').join('<br>')}
+      </td>`).join('');
+    const headerHtml = cols.map(c => `<th style="background:#f9fafb;padding:6px 8px;border:1px solid #e5e7eb;text-align:left;font-size:11px;font-weight:600">${c.label||''}</th>`).join('');
+    return `
+      <div style="margin-top:24px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr><th colspan="${cols.length}" style="background:#f3f4f6;padding:8px;text-align:center;border:1px solid #e5e7eb;font-weight:bold;letter-spacing:0.05em">PAY TO</th></tr>
+            <tr>${headerHtml}</tr>
+          </thead>
+          <tbody><tr>${colsHtml}</tr></tbody>
+        </table>
+      </div>`;
+  };
+
+  const printQuotation = (q) => {
+    const code = boqCode(q.id, q.createdAt);
+    const rows = (q.items||[]).map(i => `<tr><td>${i.description}</td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">$ ${(+i.unitPrice).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td style="text-align:right">$ ${(+i.total||+i.quantity*+i.unitPrice).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`).join('');
+    const logo = window.location.origin + '/logo.png';
+    const w = window.open('','_blank','width=800,height=600');
+    w.document.write(`<!DOCTYPE html><html><head><title>${code}</title>
+    <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:#f9fafb;text-align:left;padding:8px 10px;font-size:12px;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb}td{padding:10px;border-bottom:1px solid #f3f4f6;font-size:13px}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #ea580c;padding-bottom:12px;margin-bottom:20px}.co-wrap{display:flex;align-items:center;gap:10px}.company-name{font-size:20px;font-weight:bold;color:#1e3a5f}.company-tag{font-size:11px;color:#ea580c;font-weight:600}.doc-code{font-size:11px;color:#6b7280;margin-top:4px}.doc-title{font-size:22px;font-weight:bold;color:#ea580c}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-size:13px}.totals{text-align:right;margin-top:8px}.totals p{margin:4px 0;font-size:13px}.totals .grand{font-size:16px;font-weight:bold;color:#ea580c}@page{margin:20mm}</style>
+    </head><body>
+    <div class="header"><div class="co-wrap"><img src="${logo}" style="height:55px;object-fit:contain" onerror="this.style.display='none'"><div><div class="company-name">SUN ARATINGA</div><div class="company-tag">SUNLIGHT INTO ELECTRICITY</div></div></div><div style="text-align:right"><div class="doc-title">QUOTATION / BOQ</div><div class="doc-code">${code}</div></div></div>
+    <div class="meta"><div><strong>Customer:</strong> ${q.customer?.name||'—'}</div><div><strong>Status:</strong> ${q.status||'—'}</div><div><strong>Valid Until:</strong> ${q.validUntil?new Date(q.validUntil).toLocaleDateString():'—'}</div></div>
+    <table><thead><tr><th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="totals"><p>Subtotal: $ ${(+q.subtotal).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p>Tax: $ ${(+q.tax).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p class="grand">Total: $ ${(+q.total).toLocaleString('en-US',{minimumFractionDigits:2})}</p></div>
+    ${q.notes?`<p style="margin-top:16px;font-size:12px;color:#6b7280"><strong>Notes:</strong> ${q.notes}</p>`:''}
+    ${buildPaymentSection(settings)}
+    ${settings?.termsAndConditions?`<div style="margin-top:10px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:12px;color:#c2410c"><strong>Payment Policy:</strong> ${settings.termsAndConditions}</div>`:''}
+    <script>window.print();<\/script></body></html>`);
+    w.document.close();
+  };
 
   const recalc = (lineItems) => {
     const sub = lineItems.reduce((s, i) => s + (+i.quantity * +i.unitPrice), 0);
@@ -66,7 +97,7 @@ export default function Quotations() {
       ...its[idx],
       materialId:  matId,
       description: mat ? mat.name : its[idx].description,
-      unitPrice:   mat ? mat.unitCost : its[idx].unitPrice,
+      unitPrice:   mat ? (mat.sellingPrice || mat.unitCost) : its[idx].unitPrice,
       total:       mat ? +its[idx].quantity * mat.unitCost : its[idx].total,
     };
     recalc(its);
@@ -76,8 +107,10 @@ export default function Quotations() {
     const { data } = await client.get(`/quotations/${q.id}`);
     setForm({
       id: data.id,
-      customerId: data.customerId || '',
-      projectId:  data.projectId  || '',
+      customerId:    data.customerId    || '',
+      projectId:     data.projectId     || '',
+      bankAccountId: data.bankAccountId || '',
+      paymentTerms:  data.paymentTerms  || '',
       validUntil: data.validUntil ? data.validUntil.slice(0,10) : '',
       taxPct: data.subtotal > 0 ? +((+data.tax / +data.subtotal) * 100).toFixed(2) : 0,
       tax:      data.tax,
@@ -94,9 +127,11 @@ export default function Quotations() {
   const save = async e => {
     e.preventDefault();
     const payload = {
-      customerId: form.customerId ? +form.customerId : null,
-      projectId:  form.projectId  ? +form.projectId  : null,
-      validUntil: form.validUntil || null,
+      customerId:    form.customerId    ? +form.customerId    : null,
+      projectId:     form.projectId     ? +form.projectId     : null,
+      bankAccountId: form.bankAccountId ? +form.bankAccountId : null,
+      paymentTerms:  form.paymentTerms  || null,
+      validUntil:    form.validUntil    || null,
       tax:      +form.tax,
       subtotal: +form.subtotal,
       total:    +form.total,
@@ -121,9 +156,13 @@ export default function Quotations() {
 
   const del = async id => {
     if (!await confirm('Delete this quotation? This action cannot be undone.')) return;
-    await client.delete(`/quotations/${id}`);
-    setItems(i => i.filter(x => x.id !== id));
-    if (viewed?.id === id) setModal(null);
+    try {
+      await client.delete(`/quotations/${id}`);
+      setItems(i => i.filter(x => x.id !== id));
+      if (viewed?.id === id) setModal(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete quotation');
+    }
   };
 
   const openConvert = id => { setConvertId(id); setConvertDue(''); setModal('convert'); };
@@ -262,6 +301,13 @@ export default function Quotations() {
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Valid Until</label>
                 <input type="date" value={form.validUntil} onChange={e => setForm(f => ({ ...f, validUntil: e.target.value }))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Pay to Bank Account</label>
+                <select value={form.bankAccountId||''} onChange={e=>setForm(f=>({...f,bankAccountId:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                  <option value="">— None —</option>
+                  {bankAccounts.map(b=><option key={b.id} value={b.id}>{b.name}{b.bankName?` · ${b.bankName}`:''}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Tax (%)</label>

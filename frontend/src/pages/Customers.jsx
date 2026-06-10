@@ -3,7 +3,7 @@ import client from '../api/client';
 import Modal from '../components/Modal';
 import { useDialog } from '../context/DialogContext';
 
-const empty = { name:'', email:'', phone:'', address:'', siteLocation:'', registrationDate:'', notes:'' };
+const empty = { name:'', email:'', phone:'', address:'', responsiblePerson:'', registrationDate:'', notes:'' };
 
 const Field = ({ label, value }) => (
   <div>
@@ -51,7 +51,7 @@ export default function Customers() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>{['Name','Email','Phone','Site Location','Registered','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['Name','Email','Phone','Responsible Person','Registered','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {items.map(c=>(
@@ -59,7 +59,7 @@ export default function Customers() {
                 <td className="px-4 py-3 font-medium">{c.name}</td>
                 <td className="px-4 py-3 text-gray-500">{c.email||'—'}</td>
                 <td className="px-4 py-3">{c.phone||'—'}</td>
-                <td className="px-4 py-3">{c.siteLocation||'—'}</td>
+                <td className="px-4 py-3">{c.responsiblePerson||'—'}</td>
                 <td className="px-4 py-3 text-gray-500">{c.registrationDate ? new Date(c.registrationDate).toLocaleDateString() : '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
@@ -81,7 +81,7 @@ export default function Customers() {
             <div className="grid grid-cols-2 gap-4">
               <Field label="Email"             value={viewed.email} />
               <Field label="Phone"             value={viewed.phone} />
-              <Field label="Site Location"     value={viewed.siteLocation} />
+              <Field label="Responsible Person"     value={viewed.responsiblePerson} />
               <Field label="Registration Date" value={viewed.registrationDate ? new Date(viewed.registrationDate).toLocaleDateString() : null} />
               <div className="col-span-2">
                 <Field label="Address" value={viewed.address} />
@@ -104,7 +104,7 @@ export default function Customers() {
       {modal === 'form' && (
         <Modal title={form.id?'Edit Customer':'New Customer'} onClose={()=>setModal(null)}>
           <form onSubmit={save} className="space-y-3">
-            {[['Name','name','text',true],['Email','email','email'],['Phone','phone','tel'],['Address','address','text'],['Site Location','siteLocation','text']].map(([l,k,t,req])=>(
+            {[['Name','name','text',true],['Email','email','email'],['Phone','phone','tel'],['Address','address','text'],['Responsible Person','responsiblePerson','text']].map(([l,k,t,req])=>(
               <div key={k}>
                 <label className="block text-xs font-medium text-gray-600 mb-1">{l}</label>
                 <input type={t} required={!!req} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
