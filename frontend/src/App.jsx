@@ -24,7 +24,8 @@ import Maintenance  from './pages/Maintenance';
 import Payroll      from './pages/Payroll';
 import Reports      from './pages/Reports';
 import Users        from './pages/Users';
-import Permissions  from './pages/Permissions';
+import Permissions      from './pages/Permissions';
+import CompanySettings  from './pages/CompanySettings';
 import Guide        from './pages/Guide';
 
 function Guard({ children }) {
@@ -74,7 +75,8 @@ export default function App() {
             <Route path="payroll"     element={<PermGuard module="payroll"><Payroll /></PermGuard>} />
             <Route path="reports"     element={<PermGuard module="reports"><Reports /></PermGuard>} />
             <Route path="users"       element={<Users />} />
-            <Route path="permissions" element={<Permissions />} />
+            <Route path="permissions"      element={<Permissions />} />
+            <Route path="company-settings" element={<CompanySettings />} />
             <Route path="guide"       element={<Guide />} />
           </Route>
         </Routes>

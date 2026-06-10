@@ -31,8 +31,9 @@ const nav = [
   { section: 'Reports' },
   { to: '/reports',       label: 'Reports',        icon: '📈', module: 'reports' },
   { section: 'Admin' },
-  { to: '/users',         label: 'Users',          icon: '⚙️', module: 'users', adminOnly: true },
-  { to: '/permissions',   label: 'Permissions',    icon: '🔐', adminOnly: true },
+  { to: '/users',            label: 'Users',            icon: '⚙️', module: 'users', adminOnly: true },
+  { to: '/permissions',      label: 'Permissions',      icon: '🔐', adminOnly: true },
+  { to: '/company-settings', label: 'Company Settings', icon: '🏢', adminOnly: true },
   { to: '/guide',         label: 'Guide',          icon: '📖' },
 ];
 
