@@ -428,9 +428,14 @@ function ExpensesReport() {
           <div className="bg-red-50 rounded-xl p-4 text-sm font-semibold text-red-800 flex justify-between items-center">
             <span>Total Expenses: {fmt(data.total)}</span>
             <button onClick={() => {
-              const rows = (data.expenses||[]).map(e=>`<tr><td>${fmtD(e.expenseDate)}</td><td>${e.category||'—'}</td><td>${e.description||'—'}</td><td>${e.project?.name||'—'}</td><td style="text-align:right;color:#dc2626">${fmt(e.amount)}</td></tr>`).join('');
+              const rows = (data.expenses||[]).map(e => {
+                const hasItems = e.items?.length > 0;
+                const header = `<tr style="background:#fff7ed"><td>${fmtD(e.expenseDate)}</td><td>${e.category||'—'}</td><td>${e.description||(hasItems?`${e.items.length} items`:'—')}</td><td>${e.project?.name||'—'}</td><td style="text-align:right;color:#dc2626;font-weight:bold">${fmt(e.amount)}</td></tr>`;
+                const itemRows = hasItems ? e.items.map(i=>`<tr><td></td><td style="font-size:11px;color:#6b7280">↳</td><td style="font-size:11px;padding-left:16px">${i.description} &nbsp;×&nbsp; ${i.quantity} &nbsp;@ ${fmt(i.unitPrice)}</td><td></td><td style="text-align:right;font-size:11px;color:#dc2626">${fmt(i.total)}</td></tr>`).join('') : '';
+                return header + itemRows;
+              }).join('');
               printWindow('Expenses Report', from && to ? `${from} → ${to}` : 'All time',
-                `<table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Project</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="4" style="text-align:right;font-weight:bold">Total</td><td style="text-align:right;font-weight:bold;color:#dc2626">${fmt(data.total)}</td></tr></tfoot></table>`
+                `<table><thead><tr><th>Date</th><th>Category</th><th>Description / Item</th><th>Project</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="4" style="text-align:right;font-weight:bold">Total</td><td style="text-align:right;font-weight:bold;color:#dc2626">${fmt(data.total)}</td></tr></tfoot></table>`
               );
             }} className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-xs text-red-800 font-medium">🖨 Print</button>
           </div>
@@ -459,23 +464,58 @@ function ExpensesReport() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                  <tr>{['Date','Category','Description','Project','Amount'].map(h=><th key={h} className="px-4 py-2 text-left">{h}</th>)}</tr>
+                  <tr>
+                    <th className="px-4 py-2 text-left">Date</th>
+                    <th className="px-4 py-2 text-left">Category</th>
+                    <th className="px-4 py-2 text-left">Description / Item</th>
+                    <th className="px-4 py-2 text-right">Qty</th>
+                    <th className="px-4 py-2 text-right">Unit Price</th>
+                    <th className="px-4 py-2 text-left">Project</th>
+                    <th className="px-4 py-2 text-right">Amount</th>
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {data.expenses?.map(e => (
-                    <tr key={e.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-gray-500">{fmtD(e.expenseDate)}</td>
-                      <td className="px-4 py-2"><span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs capitalize">{e.category||'—'}</span></td>
-                      <td className="px-4 py-2 text-gray-700">{e.description||'—'}</td>
-                      <td className="px-4 py-2 text-gray-500">{e.project?.name||'—'}</td>
-                      <td className="px-4 py-2 font-medium text-red-600">{fmt(e.amount)}</td>
-                    </tr>
-                  ))}
+                  {data.expenses?.map(e => {
+                    const hasItems = e.items?.length > 0;
+                    if (!hasItems) return (
+                      <tr key={e.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-gray-500">{fmtD(e.expenseDate)}</td>
+                        <td className="px-4 py-2"><span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs capitalize">{e.category||'—'}</span></td>
+                        <td className="px-4 py-2 text-gray-700" colSpan={3}>{e.description||'—'}</td>
+                        <td className="px-4 py-2 text-gray-500">{e.project?.name||'—'}</td>
+                        <td className="px-4 py-2 font-medium text-right text-red-600">{fmt(e.amount)}</td>
+                      </tr>
+                    );
+                    return (
+                      <>
+                        {/* Expense header row */}
+                        <tr key={`h-${e.id}`} className="bg-orange-50">
+                          <td className="px-4 py-2 text-gray-500">{fmtD(e.expenseDate)}</td>
+                          <td className="px-4 py-2"><span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs capitalize">{e.category||'—'}</span></td>
+                          <td className="px-4 py-2 text-gray-500 italic text-xs" colSpan={3}>{e.description || `${e.items.length} items`}</td>
+                          <td className="px-4 py-2 text-gray-500">{e.project?.name||'—'}</td>
+                          <td className="px-4 py-2 font-bold text-right text-red-600">{fmt(e.amount)}</td>
+                        </tr>
+                        {/* Line item rows */}
+                        {e.items.map((item, i) => (
+                          <tr key={`${e.id}-${i}`} className="hover:bg-gray-50 bg-white">
+                            <td className="px-4 py-1.5 text-gray-300 text-xs pl-8">↳</td>
+                            <td className="px-4 py-1.5"/>
+                            <td className="px-4 py-1.5 text-gray-700 pl-2">{item.description}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-500">{item.quantity}</td>
+                            <td className="px-4 py-1.5 text-right text-gray-500">{fmt(item.unitPrice)}</td>
+                            <td className="px-4 py-1.5"/>
+                            <td className="px-4 py-1.5 font-medium text-right text-red-500">{fmt(item.total)}</td>
+                          </tr>
+                        ))}
+                      </>
+                    );
+                  })}
                 </tbody>
                 <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-semibold text-sm">
                   <tr>
-                    <td colSpan={4} className="px-4 py-2 text-gray-600">TOTAL</td>
-                    <td className="px-4 py-2 text-red-600">{fmt(data.total)}</td>
+                    <td colSpan={6} className="px-4 py-2 text-gray-600">TOTAL</td>
+                    <td className="px-4 py-2 text-right text-red-600">{fmt(data.total)}</td>
                   </tr>
                 </tfoot>
               </table>

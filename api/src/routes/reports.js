@@ -67,7 +67,7 @@ router.get('/expenses', auth, async (req, res) => {
   const [expenses, byCategory] = await Promise.all([
     prisma.expense.findMany({
       where,
-      include: { project: { select: { id: true, name: true } } },
+      include: { project: { select: { id: true, name: true } }, items: { orderBy: { id: 'asc' } } },
       orderBy: { expenseDate: 'desc' },
     }),
     prisma.expense.groupBy({
