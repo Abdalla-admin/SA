@@ -35,8 +35,24 @@ router.post('/', auth, async (req, res) => {
 });
 
 router.put('/:id', auth, async (req, res) => {
+  const purchaseId = +req.params.id;
+  const existing = await prisma.purchase.findUnique({ where: { id: purchaseId } });
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  if (existing.status === 'RECEIVED') return res.status(400).json({ error: 'Cannot edit a received purchase order. Unreceive it first.' });
+
   const { id, items, vendor, bankAccount, createdAt, updatedAt, ...data } = req.body;
-  const purchase = await prisma.purchase.update({ where: { id: +req.params.id }, data, include });
+
+  if (items) {
+    if (!items.length) return res.status(400).json({ error: 'At least one line item is required' });
+    const total = items.reduce((s, i) => s + (+i.totalCost || 0), 0);
+    const [, purchase] = await prisma.$transaction([
+      prisma.purchaseItem.deleteMany({ where: { purchaseId } }),
+      prisma.purchase.update({ where: { id: purchaseId }, data: { ...data, totalAmount: total, items: { create: items } }, include }),
+    ]);
+    return res.json(purchase);
+  }
+
+  const purchase = await prisma.purchase.update({ where: { id: purchaseId }, data, include });
   res.json(purchase);
 });
 
@@ -73,6 +89,50 @@ router.post('/:id/receive', auth, async (req, res) => {
   }
 
   await prisma.$transaction(ops);
+  res.json({ success: true });
+});
+
+// Unreceive PO — reverse stock, restore bank balance, remove logged expense
+router.patch('/:id/unreceive', auth, async (req, res) => {
+  const purchase = await prisma.purchase.findUnique({ where: { id: +req.params.id }, include: { items: true } });
+  if (!purchase) return res.status(404).json({ error: 'Not found' });
+  if (purchase.status !== 'RECEIVED') return res.status(400).json({ error: 'This purchase order has not been received' });
+
+  const materials = await prisma.material.findMany({ where: { id: { in: purchase.items.map(i => i.materialId) } } });
+  const matMap = Object.fromEntries(materials.map(m => [m.id, m]));
+  for (const item of purchase.items) {
+    const mat = matMap[item.materialId];
+    if (!mat || mat.quantity < item.quantity) {
+      return res.status(400).json({ error: `Cannot unreceive: stock for "${mat?.name || 'item'}" has already been used (only ${mat?.quantity ?? 0} left, need ${item.quantity}).` });
+    }
+  }
+
+  const code = `PO-${String(purchase.id).padStart(4, '0')}`;
+  const expense = await prisma.expense.findFirst({ where: { category: 'purchase', description: { startsWith: code } } });
+
+  const ops = [
+    prisma.purchase.update({ where: { id: purchase.id }, data: { status: 'PENDING', receivedAt: null } }),
+    ...purchase.items.map(item =>
+      prisma.material.update({ where: { id: item.materialId }, data: { quantity: { decrement: item.quantity } } })
+    ),
+  ];
+  if (expense) ops.push(prisma.expense.delete({ where: { id: expense.id } }));
+  if (purchase.bankAccountId) {
+    ops.push(prisma.bankAccount.update({ where: { id: purchase.bankAccountId }, data: { balance: { increment: purchase.totalAmount } } }));
+  }
+
+  await prisma.$transaction(ops);
+  res.json({ success: true });
+});
+
+router.delete('/:id', auth, async (req, res) => {
+  const po = await prisma.purchase.findUnique({ where: { id: +req.params.id }, include: { items: true } });
+  if (!po) return res.status(404).json({ error: 'Not found' });
+  if (po.status === 'RECEIVED') return res.status(400).json({ error: 'Cannot delete a received purchase order. Stock has already been updated.' });
+  await prisma.$transaction([
+    prisma.purchaseItem.deleteMany({ where: { purchaseId: po.id } }),
+    prisma.purchase.delete({ where: { id: po.id } }),
+  ]);
   res.json({ success: true });
 });
 

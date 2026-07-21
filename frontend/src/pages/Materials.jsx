@@ -3,7 +3,7 @@ import client from '../api/client';
 import Modal from '../components/Modal';
 import { useDialog } from '../context/DialogContext';
 
-const empty = { name:'', category:'', unit:'pcs', quantity:0, minStock:0, unitCost:0, brand:'', specs:'' };
+const empty = { name:'', category:'', unit:'pcs', quantity:0, minStock:0, unitCost:0, sellingPrice:0, brand:'', specs:'' };
 const DEFAULT_CATS = ['panels','inverters','cables','mounts','batteries','accessories','other'];
 const emptyLine = () => ({ materialId:'', quantity:'1', unitPrice:'' });
 const fmtQty = n => { const num = +n; if (!num && num !== 0) return '0'; return Number.isInteger(num) ? num.toString() : parseFloat(num.toFixed(4)).toString(); };
@@ -53,7 +53,7 @@ export default function Materials() {
 
   const save = async e => {
     e.preventDefault();
-    const payload = { ...form, quantity: +form.quantity, minStock: +form.minStock, unitCost: +form.unitCost };
+    const payload = { ...form, quantity: +form.quantity, minStock: +form.minStock, unitCost: +form.unitCost, sellingPrice: +form.sellingPrice };
     if (form.id) {
       const { data } = await client.put(`/materials/${form.id}`, payload);
       setItems(i => i.map(x => x.id === data.id ? data : x));
@@ -71,7 +71,7 @@ export default function Materials() {
       // Auto-fill unit price from material's cost when material is selected
       if (field === 'materialId' && value) {
         const mat = items.find(m => m.id === +value);
-        if (mat) next[idx].unitPrice = String(mat.unitCost);
+        if (mat) next[idx].unitPrice = String(mat.sellingPrice || mat.unitCost);
       }
       return next;
     });
@@ -106,8 +106,12 @@ export default function Materials() {
 
   const del = async id => {
     if (!await confirm('Delete this item? This action cannot be undone.')) return;
-    await client.delete(`/materials/${id}`);
-    setItems(i => i.filter(x => x.id !== id));
+    try {
+      await client.delete(`/materials/${id}`);
+      setItems(i => i.filter(x => x.id !== id));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete item');
+    }
   };
 
   // Which material IDs are already selected in other lines
@@ -132,7 +136,7 @@ export default function Materials() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>{['Name','Category','Brand','Specs','Stock','Min Stock','Unit Cost','Value','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['Name','Category','Brand','Specs','Stock','Min Stock','Buy Price','Sell Price','Value','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {items.map(m=>(
@@ -146,7 +150,8 @@ export default function Materials() {
                   {m.quantity<=m.minStock&&<span className="ml-1 text-xs text-red-500">⚠ Low</span>}
                 </td>
                 <td className="px-4 py-3 text-gray-500">{m.minStock} {m.unit}</td>
-                <td className="px-4 py-3">$ {m.unitCost}</td>
+                <td className="px-4 py-3 text-gray-500">$ {m.unitCost}</td>
+                <td className="px-4 py-3 font-medium text-orange-600">$ {m.sellingPrice || '—'}</td>
                 <td className="px-4 py-3 font-medium">$ {(m.quantity*m.unitCost).toLocaleString()}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
@@ -261,7 +266,7 @@ export default function Materials() {
                 </div>
               )}
             </div>
-            {[['Unit','unit','text'],['Brand','brand','text'],['Specs','specs','text'],['Stock','quantity','number'],['Min Stock','minStock','number'],['Unit Cost ($)','unitCost','number']].map(([l,k,t])=>(
+            {[['Unit','unit','text'],['Brand','brand','text'],['Specs','specs','text'],['Stock','quantity','number'],['Min Stock','minStock','number'],['Purchase Cost ($)','unitCost','number'],['Selling Price ($)','sellingPrice','number']].map(([l,k,t])=>(
               <div key={k}>
                 <label className="block text-xs font-medium text-gray-600 mb-1">{l}</label>
                 <input type={t} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>

@@ -5,7 +5,7 @@ import StatusBadge from '../components/StatusBadge';
 import { invCode } from '../utils/docCode';
 
 const emptyItem = () => ({ materialId:'', description:'', quantity:1, unitPrice:0 });
-const emptyForm = { customerId:'', contractId:'', projectId:'', bankAccountId:'', paymentTerms:'', dueDate:'', taxPct:0, subtotal:0, tax:0, total:0, notes:'', items:[emptyItem()] };
+const emptyForm = { customerId:'', contractId:'', projectId:'', bankAccountId:'', paymentTerms:'', dueDate:'', taxPct:0, subtotal:0, tax:0, discount:0, total:0, notes:'', items:[emptyItem()] };
 const emptyPay  = { amount:'', method:'bank_transfer', bankAccountId:'', paidAt:'', notes:'' };
 const fmt = n => '$ ' + (+n||0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
@@ -71,7 +71,7 @@ export default function Invoices() {
     <div class="header"><div class="co-wrap"><img src="${logo}" style="height:55px;object-fit:contain" onerror="this.style.display='none'"><div><div class="company-name">SUN ARATINGA</div><div class="company-tag">SUNLIGHT INTO ELECTRICITY</div></div></div><div style="text-align:right"><div class="doc-title">INVOICE</div><div class="doc-code">${code}</div></div></div>
     <div class="meta"><div><strong>Customer:</strong> ${inv.customer?.name||'—'}</div><div><strong>Status:</strong> ${inv.status||'—'}</div><div><strong>Issue Date:</strong> ${inv.issueDate?new Date(inv.issueDate).toLocaleDateString():'—'}</div><div><strong>Due Date:</strong> ${inv.dueDate?new Date(inv.dueDate).toLocaleDateString():'—'}</div></div>
     <table><thead><tr><th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="totals"><p>Subtotal: $ ${(+inv.subtotal).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p>Tax: $ ${(+inv.tax).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p class="grand">Total: $ ${(+inv.total).toLocaleString('en-US',{minimumFractionDigits:2})}</p></div>
+    <div class="totals"><p>Subtotal: $ ${(+inv.subtotal).toLocaleString('en-US',{minimumFractionDigits:2})}</p><p>Tax: $ ${(+inv.tax).toLocaleString('en-US',{minimumFractionDigits:2})}</p>${(+inv.discount)>0?`<p>Discount: -$ ${(+inv.discount).toLocaleString('en-US',{minimumFractionDigits:2})}</p>`:''}<p class="grand">Total: $ ${(+inv.total).toLocaleString('en-US',{minimumFractionDigits:2})}</p></div>
     ${buildPaymentSection(settings)}
     ${settings?.termsAndConditions ? `<div style="margin-top:10px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:12px;color:#c2410c"><strong>Payment Policy:</strong> ${settings.termsAndConditions}</div>` : ''}
     <script>window.print();<\/script></body></html>`);
@@ -93,7 +93,7 @@ export default function Invoices() {
     const sub = its.reduce((s,i) => s + +i.quantity * +i.unitPrice, 0);
     setForm(f => {
       const taxAmt = sub * (+f.taxPct / 100);
-      return { ...f, items: its, subtotal: sub, tax: taxAmt, total: sub + taxAmt };
+      return { ...f, items: its, subtotal: sub, tax: taxAmt, total: sub + taxAmt - (+f.discount || 0) };
     });
   };
 
@@ -109,7 +109,7 @@ export default function Invoices() {
     const sub = its.reduce((s,i) => s + +i.quantity * +i.unitPrice, 0);
     setForm(f => {
       const taxAmt = sub * (+f.taxPct / 100);
-      return { ...f, items: its, subtotal: sub, tax: taxAmt, total: sub + taxAmt };
+      return { ...f, items: its, subtotal: sub, tax: taxAmt, total: sub + taxAmt - (+f.discount || 0) };
     });
   };
 
@@ -126,6 +126,7 @@ export default function Invoices() {
       taxPct:     data.subtotal > 0 ? +((+data.tax / +data.subtotal) * 100).toFixed(2) : 0,
       subtotal:   data.subtotal,
       tax:        data.tax,
+      discount:   data.discount || 0,
       total:      data.total,
       notes:      data.notes || '',
       items:      data.items?.length ? data.items.map(i => ({ materialId: i.materialId || '', description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })) : [emptyItem()],
@@ -144,6 +145,7 @@ export default function Invoices() {
       dueDate:       form.dueDate || null,
       subtotal:   +form.subtotal,
       tax:        +form.tax,
+      discount:   +form.discount,
       total:      +form.total,
       notes:      form.notes || null,
       items: form.items.map(i => ({ materialId: i.materialId ? +i.materialId : null, description: i.description, quantity: +i.quantity, unitPrice: +i.unitPrice, total: +i.quantity * +i.unitPrice })),
@@ -307,17 +309,24 @@ export default function Invoices() {
                   <button type="button" onClick={()=>setForm(f=>({...f,items:f.items.filter((_,i)=>i!==idx)}))} className="col-span-1 text-red-400 text-lg text-center">×</button>
                 </div>
               ))}
-              <div className="grid grid-cols-4 gap-4 mt-3">
+              <div className="grid grid-cols-3 gap-4 mt-3">
                 <div><label className="block text-xs text-gray-500 mb-1">Subtotal</label><input readOnly value={fmt(form.subtotal)} className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50"/></div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Tax (%)</label>
                   <input type="number" min="0" max="100" step="0.1" value={form.taxPct} onChange={e => {
                     const pct = +e.target.value;
                     const taxAmt = +form.subtotal * (pct / 100);
-                    setForm(f => ({ ...f, taxPct: pct, tax: taxAmt, total: +f.subtotal + taxAmt }));
+                    setForm(f => ({ ...f, taxPct: pct, tax: taxAmt, total: +f.subtotal + taxAmt - (+f.discount || 0) }));
                   }} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
                 </div>
                 <div><label className="block text-xs text-gray-500 mb-1">Tax ($)</label><input readOnly value={fmt(form.tax)} className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50"/></div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Discount ($)</label>
+                  <input type="number" min="0" step="0.01" value={form.discount} onChange={e => {
+                    const disc = +e.target.value;
+                    setForm(f => ({ ...f, discount: disc, total: +f.subtotal + +f.tax - disc }));
+                  }} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+                </div>
                 <div><label className="block text-xs text-gray-500 mb-1">Total</label><input readOnly value={fmt(form.total)} className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 font-bold"/></div>
               </div>
             </div>
@@ -360,6 +369,9 @@ export default function Invoices() {
               <tfoot className="border-t">
                 <tr><td colSpan={3} className="py-2 text-right text-gray-500">Subtotal</td><td className="py-2 text-right font-medium">{fmt(viewModal.subtotal)}</td></tr>
                 <tr><td colSpan={3} className="py-2 text-right text-gray-500">Tax</td><td className="py-2 text-right">{fmt(viewModal.tax)}</td></tr>
+                {+viewModal.discount > 0 && (
+                  <tr><td colSpan={3} className="py-2 text-right text-gray-500">Discount</td><td className="py-2 text-right text-red-500">-{fmt(viewModal.discount)}</td></tr>
+                )}
                 <tr><td colSpan={3} className="py-2 text-right font-bold text-base">Total</td><td className="py-2 text-right font-bold text-base">{fmt(viewModal.total)}</td></tr>
                 {viewModal.payments?.length > 0 && (() => {
                   const totalPaid = viewModal.payments.reduce((s,p) => s + +p.amount, 0);

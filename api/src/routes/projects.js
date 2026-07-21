@@ -103,7 +103,21 @@ router.post('/:id/materials', auth, async (req, res) => {
 });
 
 router.delete('/:id', auth, async (req, res) => {
-  await prisma.project.delete({ where: { id: +req.params.id } });
+  const id = +req.params.id;
+  // Clear nullable FKs then delete project + its owned records
+  await prisma.$transaction([
+    prisma.invoice.updateMany({ where: { projectId: id }, data: { projectId: null } }),
+    prisma.quotation.updateMany({ where: { projectId: id }, data: { projectId: null } }),
+    prisma.expense.updateMany({ where: { projectId: id }, data: { projectId: null } }),
+    prisma.maintenanceRequest.deleteMany({ where: { projectId: id } }),
+    prisma.warranty.deleteMany({ where: { projectId: id } }),
+    prisma.commissioningTest.deleteMany({ where: { projectId: id } }),
+    prisma.snagItem.deleteMany({ where: { projectId: id } }),
+    prisma.milestone.deleteMany({ where: { projectId: id } }),
+    prisma.materialAllocation.deleteMany({ where: { projectId: id } }),
+    prisma.design.deleteMany({ where: { projectId: id } }),
+    prisma.project.delete({ where: { id } }),
+  ]);
   res.json({ success: true });
 });
 

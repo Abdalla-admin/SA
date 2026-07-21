@@ -7,6 +7,13 @@ import { purCode } from '../utils/docCode';
 
 const emptyForm = { vendorId:'', bankAccountId:'', notes:'', items:[{materialId:'',quantity:1,unitCost:0,totalCost:0}] };
 
+const Field = ({ label, value }) => (
+  <div>
+    <p className="text-xs text-gray-400">{label}</p>
+    <p className="text-sm font-medium mt-0.5">{value ?? '—'}</p>
+  </div>
+);
+
 const printPO = (po) => {
   const code = purCode(po.id, po.createdAt || po.orderDate);
   const rows = (po.items||[]).map(i => `<tr><td>${i.material?.name||'—'} (${i.material?.unit||''})</td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">$ ${(+i.unitCost).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td style="text-align:right">$ ${(+i.totalCost).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`).join('');
@@ -30,9 +37,10 @@ export default function Purchases() {
   const [vendors, setVendors]     = useState([]);
   const [materials, setMaterials] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
-  const [modal, setModal]         = useState(false);
+  const [modal, setModal]         = useState(null); // 'form' | 'view' | null
   const [form, setForm]           = useState(emptyForm);
   const [error, setError]         = useState('');
+  const [viewed, setViewed]       = useState(null);
 
   const load = () => client.get('/purchases').then(r => setItems(r.data));
 
@@ -58,24 +66,42 @@ export default function Purchases() {
   const save = async e => {
     e.preventDefault();
     setError('');
+    const payload = {
+      vendorId:      form.vendorId      ? +form.vendorId      : null,
+      bankAccountId: form.bankAccountId ? +form.bankAccountId : null,
+      notes: form.notes || null,
+      items: form.items.map(i => ({
+        materialId: +i.materialId,
+        quantity:   +i.quantity,
+        unitCost:   +i.unitCost,
+        totalCost:  +i.quantity * +i.unitCost,
+      })),
+    };
     try {
-      const { data } = await client.post('/purchases', {
-        vendorId:      form.vendorId      ? +form.vendorId      : null,
-        bankAccountId: form.bankAccountId ? +form.bankAccountId : null,
-        notes: form.notes || null,
-        items: form.items.map(i => ({
-          materialId: +i.materialId,
-          quantity:   +i.quantity,
-          unitCost:   +i.unitCost,
-          totalCost:  +i.quantity * +i.unitCost,
-        })),
-      });
-      setItems(i => [data, ...i]);
+      if (form.id) {
+        const { data } = await client.put(`/purchases/${form.id}`, payload);
+        setItems(i => i.map(x => x.id === data.id ? data : x));
+      } else {
+        const { data } = await client.post('/purchases', payload);
+        setItems(i => [data, ...i]);
+      }
       setForm(emptyForm);
-      setModal(false);
+      setModal(null);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create PO');
+      setError(err.response?.data?.error || 'Failed to save PO');
     }
+  };
+
+  const openEdit = po => {
+    setForm({
+      id: po.id,
+      vendorId: po.vendorId || '',
+      bankAccountId: po.bankAccountId || '',
+      notes: po.notes || '',
+      items: po.items.map(i => ({ materialId: i.materialId, quantity: i.quantity, unitCost: i.unitCost, totalCost: i.totalCost })),
+    });
+    setError('');
+    setModal('form');
   };
 
   const receive = async po => {
@@ -92,11 +118,35 @@ export default function Purchases() {
     }
   };
 
+  const del = async id => {
+    if (!await confirm('Delete this purchase order? This action cannot be undone.')) return;
+    try {
+      await client.delete(`/purchases/${id}`);
+      setItems(i => i.filter(x => x.id !== id));
+      if (viewed?.id === id) setModal(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete purchase order');
+    }
+  };
+
+  const unreceive = async po => {
+    const msg = po.bankAccountId
+      ? `Unreceive PO-${String(po.id).padStart(4,'0')}?\n\nStock will be reversed, the logged expense removed, and $ ${po.totalAmount.toLocaleString()} restored to "${po.bankAccount?.name}".`
+      : `Unreceive PO-${String(po.id).padStart(4,'0')}?\n\nStock will be reversed and the logged expense removed.`;
+    if (!await confirm(msg, { title: 'Confirm Unreceive', confirmLabel: 'Unreceive' })) return;
+    try {
+      await client.patch(`/purchases/${po.id}/unreceive`);
+      load();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to unreceive PO');
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Purchases</h1>
-        <button onClick={() => { setForm(emptyForm); setError(''); setModal(true); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New PO</button>
+        <button onClick={() => { setForm(emptyForm); setError(''); setModal('form'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New PO</button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
@@ -119,9 +169,19 @@ export default function Purchases() {
                 <td className="px-4 py-3"><StatusBadge status={p.status}/></td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2 flex-wrap">
+                    <button onClick={() => { setViewed(p); setModal('view'); }} className="px-3 py-1 rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 text-xs font-medium">View</button>
+                    {p.status !== 'RECEIVED' && (
+                      <button onClick={() => openEdit(p)} className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium">Edit</button>
+                    )}
                     <button onClick={() => printPO(p)} className="px-3 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-medium">🖨 Print</button>
                     {p.status !== 'RECEIVED' && p.status !== 'CANCELLED' && (
                       <button onClick={() => receive(p)} className="px-3 py-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium">Receive</button>
+                    )}
+                    {p.status === 'RECEIVED' && (
+                      <button onClick={() => unreceive(p)} className="px-3 py-1 rounded-md bg-yellow-100 text-yellow-700 hover:bg-yellow-200 text-xs font-medium">Unreceive</button>
+                    )}
+                    {p.status !== 'RECEIVED' && (
+                      <button onClick={() => del(p.id)} className="px-3 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium">Delete</button>
                     )}
                   </div>
                 </td>
@@ -131,8 +191,55 @@ export default function Purchases() {
         </table>
       </div>
 
-      {modal && (
-        <Modal title="New Purchase Order" onClose={() => setModal(false)} wide>
+      {/* View Modal */}
+      {modal === 'view' && viewed && (
+        <Modal title={`PO-${String(viewed.id).padStart(4,'0')}`} onClose={() => setModal(null)} wide>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Vendor" value={viewed.vendor?.name} />
+              <Field label="Status" value={<StatusBadge status={viewed.status}/>} />
+              <Field label="Order Date" value={new Date(viewed.orderDate).toLocaleDateString()} />
+              <Field label="Pay Account" value={viewed.bankAccount?.name || 'Cash/Expense'} />
+              {viewed.receivedAt && <Field label="Received At" value={new Date(viewed.receivedAt).toLocaleDateString()} />}
+              {viewed.notes && <Field label="Notes" value={viewed.notes} />}
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Line Items</p>
+              <table className="w-full text-sm border rounded-lg overflow-hidden">
+                <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                  <tr>{['Material','Qty','Unit Cost','Total'].map(h=><th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {viewed.items?.map(i=>(
+                    <tr key={i.id}>
+                      <td className="px-3 py-2">{i.material?.name} <span className="text-gray-400 text-xs">({i.material?.unit})</span></td>
+                      <td className="px-3 py-2">{i.quantity}</td>
+                      <td className="px-3 py-2">$ {(+i.unitCost).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                      <td className="px-3 py-2 font-medium">$ {(+i.totalCost).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="text-right text-sm font-bold text-gray-800 mt-2">
+                Total: $ {(+viewed.totalAmount).toLocaleString('en-US',{minimumFractionDigits:2})}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              {viewed.status !== 'RECEIVED' && (
+                <button onClick={()=>openEdit(viewed)} className="px-4 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm font-medium">Edit</button>
+              )}
+              <button onClick={()=>printPO(viewed)} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm font-medium">🖨 Print</button>
+              {viewed.status !== 'RECEIVED' && (
+                <button onClick={()=>del(viewed.id)} className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium">Delete</button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Form Modal */}
+      {modal === 'form' && (
+        <Modal title={form.id ? `Edit PO-${String(form.id).padStart(4,'0')}` : 'New Purchase Order'} onClose={() => setModal(null)} wide>
           <form onSubmit={save} className="space-y-4">
             {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
             <div className="grid grid-cols-2 gap-4">
@@ -147,7 +254,7 @@ export default function Purchases() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Pay from Bank Account</label>
                 <select value={form.bankAccountId} onChange={e=>setForm(f=>({...f,bankAccountId:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
                   <option value="">No bank account (expense only)</option>
-                  {bankAccounts.map(b=><option key={b.id} value={b.id}>{b.name} — $ {(+b.balance).toLocaleString()}</option>)}
+                  {bankAccounts.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
             </div>
@@ -186,8 +293,8 @@ export default function Purchases() {
               </div>
             </div>
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setModal(false)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
-              <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Create PO</button>
+              <button type="button" onClick={() => setModal(null)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
+              <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">{form.id ? 'Save Changes' : 'Create PO'}</button>
             </div>
           </form>
         </Modal>

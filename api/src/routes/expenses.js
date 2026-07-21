@@ -49,10 +49,11 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 router.delete('/:id', auth, async (req, res) => {
-  const expense = await prisma.expense.findUnique({ where: { id: +req.params.id } });
+  const expense = await prisma.expense.findUnique({ where: { id: +req.params.id }, include: { payslip: true } });
   if (!expense) return res.status(404).json({ error: 'Not found' });
   await prisma.$transaction([
     prisma.expenseItem.deleteMany({ where: { expenseId: +req.params.id } }),
+    ...(expense.payslip ? [prisma.payslip.update({ where: { id: expense.payslip.id }, data: { paidAt: null, bankAccountId: null, expenseId: null } })] : []),
     prisma.expense.delete({ where: { id: +req.params.id } }),
     ...(expense.bankAccountId ? [prisma.bankAccount.update({ where: { id: expense.bankAccountId }, data: { balance: { increment: expense.amount } } })] : []),
   ]);
