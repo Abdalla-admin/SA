@@ -33,7 +33,16 @@ router.post('/:id/adjust', auth, async (req, res) => {
 });
 
 router.delete('/:id', auth, async (req, res) => {
-  await prisma.material.delete({ where: { id: +req.params.id } });
+  const id = +req.params.id;
+  const refs = await prisma.purchaseItem.count({ where: { materialId: id } });
+  if (refs > 0) return res.status(400).json({ error: 'Cannot delete: this item has purchase history. Archive it instead by setting quantity to 0.' });
+  // Clear optional references then delete
+  await prisma.$transaction([
+    prisma.quotationItem.updateMany({ where: { materialId: id }, data: { materialId: null } }),
+    prisma.invoiceItem.updateMany({ where: { materialId: id }, data: { materialId: null } }),
+    prisma.materialAllocation.deleteMany({ where: { materialId: id } }),
+    prisma.material.delete({ where: { id } }),
+  ]);
   res.json({ success: true });
 });
 

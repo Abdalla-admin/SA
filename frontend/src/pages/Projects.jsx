@@ -77,10 +77,14 @@ export default function Projects() {
   };
 
   const del = async id => {
-    if (!await confirm('Delete this project? This action cannot be undone.')) return;
-    await client.delete(`/projects/${id}`);
-    setProjects(p => p.filter(x => x.id !== id));
-    if (modal === 'detail') setModal(null);
+    if (!await confirm('Delete this project? All milestones, designs, and warranty records will also be deleted.')) return;
+    try {
+      await client.delete(`/projects/${id}`);
+      setProjects(p => p.filter(x => x.id !== id));
+      if (modal === 'detail') setModal(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete project');
+    }
   };
 
   const openEdit = p => {

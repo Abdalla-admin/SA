@@ -506,6 +506,7 @@ model Invoice {
   paymentTerms  String?
   subtotal      Float         @default(0)
   tax           Float         @default(0)
+  discount      Float         @default(0)
   total         Float         @default(0)
   notes         String?
   createdAt     DateTime      @default(now())
@@ -552,6 +553,7 @@ model Expense {
   expenseDate   DateTime      @default(now())
   createdAt     DateTime      @default(now())
   items         ExpenseItem[]
+  payslip       Payslip?
 }
 
 model ExpenseItem {
@@ -581,6 +583,7 @@ model BankAccount {
   transfersFrom FundTransfer[]   @relation("FromAccount")
   transfersTo   FundTransfer[]   @relation("ToAccount")
   transactions  BankTransaction[]
+  payslips      Payslip[]
 }
 
 model BankTransaction {
@@ -632,17 +635,21 @@ model Leave {
 }
 
 model Payslip {
-  id          Int      @id @default(autoincrement())
-  employeeId  Int
-  employee    Employee @relation(fields: [employeeId], references: [id])
-  month       Int
-  year        Int
-  basicSalary Float
-  allowances  Float    @default(0)
-  deductions  Float    @default(0)
-  netPay      Float
-  paidAt      DateTime?
-  createdAt   DateTime @default(now())
+  id            Int          @id @default(autoincrement())
+  employeeId    Int
+  employee      Employee     @relation(fields: [employeeId], references: [id])
+  month         Int
+  year          Int
+  basicSalary   Float
+  allowances    Float        @default(0)
+  deductions    Float        @default(0)
+  netPay        Float
+  bankAccountId Int?
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+  expenseId     Int?         @unique
+  expense       Expense?     @relation(fields: [expenseId], references: [id])
+  paidAt        DateTime?
+  createdAt     DateTime     @default(now())
 }
 
 model CompanySettings {
