@@ -1,9 +1,9 @@
 version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: sa_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: sa_user
       POSTGRES_PASSWORD: sa_pass
@@ -17,10 +17,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
   api:
     build: ./api
     container_name: sa_api
+    restart: unless-stopped
     ports:
       - '3002:3001'
     environment:
@@ -34,10 +34,10 @@ services:
       - ./api:/app
       - /app/node_modules
     command: npm run dev
-
   frontend:
     build: ./frontend
     container_name: sa_frontend
+    restart: unless-stopped
     ports:
       - '3003:3000'
     environment:
@@ -55,6 +55,5 @@ services:
       - ./frontend:/app
       - /app/node_modules
     command: npm run dev
-
 volumes:
   sa_pgdata:
