@@ -221,7 +221,7 @@ export default function Guide() {
         {
           title: 'Record payments directly',
           steps: [
-            'Go to Finance → Payments → "+ Record Payment"',
+            'Go to Finance → Receipt Voucher → "+ Record Receipt Voucher"',
             'Select the customer — their unpaid invoices will appear in the dropdown',
             'Selecting an invoice auto-fills the remaining balance as the payment amount',
             'Choose payment method (Bank Transfer, Cash, Cheque, Card) and bank account',

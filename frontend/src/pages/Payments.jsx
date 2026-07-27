@@ -16,7 +16,7 @@ const printPayment = (p) => {
   w.document.write(`<!DOCTYPE html><html><head><title>${code}</title>
   <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #ea580c;padding-bottom:12px;margin-bottom:20px}.co-wrap{display:flex;align-items:center;gap:10px}.company-name{font-size:20px;font-weight:bold;color:#1e3a5f}.company-tag{font-size:11px;color:#ea580c;font-weight:600}.doc-code{font-size:11px;color:#6b7280;margin-top:4px}.doc-title{font-size:22px;font-weight:bold;color:#ea580c}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:14px}.amount{font-size:20px;font-weight:bold;color:#16a34a;margin:16px 0}@page{margin:20mm}</style>
   </head><body>
-  <div class="header"><div class="co-wrap"><img src="${logo}" style="height:55px;object-fit:contain" onerror="this.style.display='none'"><div><div class="company-name">SUN ARATINGA</div><div class="company-tag">SUNLIGHT INTO ELECTRICITY</div></div></div><div style="text-align:right"><div class="doc-title">PAYMENT RECEIPT</div><div class="doc-code">${code}</div></div></div>
+  <div class="header"><div class="co-wrap"><img src="${logo}" style="height:55px;object-fit:contain" onerror="this.style.display='none'"><div><div class="company-name">SUN ARATINGA</div><div class="company-tag">SUNLIGHT INTO ELECTRICITY</div></div></div><div style="text-align:right"><div class="doc-title">RECEIPT VOUCHER</div><div class="doc-code">${code}</div></div></div>
   <div class="row"><span>Invoice Ref</span><strong>${invRef}</strong></div>
   <div class="row"><span>Customer</span><strong>${p.invoice?.customer?.name||'—'}</strong></div>
   <div class="row"><span>Method</span><span style="text-transform:capitalize">${(p.method||'').replace(/_/g,' ')}</span></div>
@@ -93,12 +93,12 @@ export default function Payments() {
       setModal(null);
       setForm(emptyForm);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to record payment');
+      setError(err.response?.data?.error || 'Failed to record receipt voucher');
     }
   };
 
   const voidPayment = async id => {
-    if (!await confirm('Void this payment? The bank balance will be reversed and invoice status updated.')) return;
+    if (!await confirm('Void this receipt voucher? The bank balance will be reversed and invoice status updated.')) return;
     await client.delete(`/payments/${id}`);
     setItems(i => i.filter(x => x.id !== id));
     if (viewed?.id === id) setModal(null);
@@ -108,8 +108,8 @@ export default function Payments() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-        <button onClick={() => { setForm(emptyForm); setError(''); setModal('new'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Record Payment</button>
+        <h1 className="text-2xl font-bold text-gray-900">Receipt Voucher</h1>
+        <button onClick={() => { setForm(emptyForm); setError(''); setModal('new'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Record Receipt Voucher</button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
@@ -119,7 +119,7 @@ export default function Payments() {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {items.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">No payments recorded yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">No receipt vouchers recorded yet</td></tr>
             )}
             {items.map(p=>(
               <tr key={p.id} className="hover:bg-gray-50">
@@ -144,7 +144,7 @@ export default function Payments() {
 
       {/* View Modal */}
       {modal === 'view' && viewed && (
-        <Modal title="Payment Details" onClose={()=>setModal(null)}>
+        <Modal title="Receipt Voucher Details" onClose={()=>setModal(null)}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Field label="Invoice" value={`INV-${String(viewed.invoiceId).padStart(4,'0')}`} />
@@ -169,7 +169,7 @@ export default function Payments() {
 
       {/* New / Edit Modal */}
       {(modal === 'new' || modal === 'edit') && (
-        <Modal title={modal === 'edit' ? 'Edit Payment' : 'Record Payment'} onClose={() => setModal(null)}>
+        <Modal title={modal === 'edit' ? 'Edit Receipt Voucher' : 'Record Receipt Voucher'} onClose={() => setModal(null)}>
           <div className="space-y-4">
             {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
 
@@ -234,7 +234,7 @@ export default function Payments() {
 
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setModal(null)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
-              <button type="button" onClick={save} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">{modal === 'edit' ? 'Update Payment' : 'Record Payment'}</button>
+              <button type="button" onClick={save} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">{modal === 'edit' ? 'Update Receipt Voucher' : 'Record Receipt Voucher'}</button>
             </div>
           </div>
         </Modal>

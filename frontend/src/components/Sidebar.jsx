@@ -18,7 +18,7 @@ const nav = [
   { section: 'Finance' },
   { to: '/quotations',    label: 'Quotations',       icon: '📋', module: 'quotations' },
   { to: '/invoices',       label: 'Invoices',       icon: '🧾', module: 'invoices' },
-  { to: '/payments',      label: 'Payments',       icon: '💳', module: 'payments' },
+  { to: '/payments',      label: 'Receipt Voucher', icon: '💳', module: 'payments' },
   { to: '/expenses',      label: 'Expenses',       icon: '💸', module: 'expenses' },
   { section: 'Banking' },
   { to: '/bank-accounts', label: 'Bank Accounts',  icon: '🏦', module: 'bank_accounts' },

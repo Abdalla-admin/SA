@@ -45,17 +45,27 @@ router.get('/sales', auth, async (req, res) => {
   const df = dateRange(from, to);
   const baseWhere = df ? { createdAt: df } : {};
   const where = status ? { ...baseWhere, status } : baseWhere;
-  const [invoices, byStatus] = await Promise.all([
+  const [rawInvoices, byStatus] = await Promise.all([
     prisma.invoice.findMany({
       where,
-      include: { customer: { select: { name: true } }, payments: { select: { amount: true } } },
+      include: {
+        customer: { select: { name: true } },
+        payments: { select: { amount: true } },
+        items: { include: { material: { select: { unitCost: true } } } },
+      },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.invoice.groupBy({ by: ['status'], _sum: { total: true }, _count: true, where: baseWhere }),
   ]);
-  const total     = invoices.reduce((s, inv) => s + inv.total, 0);
-  const collected = invoices.reduce((s, inv) => s + inv.payments.reduce((ps, p) => ps + p.amount, 0), 0);
-  res.json({ total, collected, outstanding: total - collected, byStatus, invoices });
+  const invoices = rawInvoices.map(inv => {
+    const cost = inv.items.reduce((s, i) => s + (i.material?.unitCost || 0) * i.quantity, 0);
+    const revenue = +inv.subtotal - +(inv.discount || 0);
+    return { ...inv, cost, grossProfit: revenue - cost };
+  });
+  const total       = invoices.reduce((s, inv) => s + inv.total, 0);
+  const collected   = invoices.reduce((s, inv) => s + inv.payments.reduce((ps, p) => ps + p.amount, 0), 0);
+  const totalProfit = invoices.reduce((s, inv) => s + inv.grossProfit, 0);
+  res.json({ total, collected, outstanding: total - collected, totalProfit, byStatus, invoices });
 });
 
 // Expenses — by category + detailed list
@@ -90,19 +100,83 @@ router.get('/projects', auth, async (req, res) => {
     include: {
       customer:  { select: { name: true } },
       contract:  { select: { value: true } },
-      invoices:  { select: { total: true, status: true, payments: { select: { amount: true } } } },
+      invoices:  {
+        select: {
+          total: true, subtotal: true, discount: true, status: true,
+          payments: { select: { amount: true } },
+          items: { select: { description: true, quantity: true, material: { select: { unitCost: true } } } },
+        },
+      },
       expenses:  { select: { amount: true } },
       warranty:  { select: { status: true, endDate: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
-  res.json(projects.map(p => ({
-    ...p,
-    contractValue: p.contract?.value || 0,
-    totalExpenses: p.expenses.reduce((s, e) => s + e.amount, 0),
-    totalInvoiced: p.invoices.reduce((s, inv) => s + inv.total, 0),
-    totalCollected: p.invoices.reduce((s, inv) => s + inv.payments.reduce((ps, pay) => ps + pay.amount, 0), 0),
-  })));
+  res.json(projects.map(p => {
+    const allItems = p.invoices.flatMap(inv => inv.items);
+    const cost = allItems.reduce((s, i) => s + (i.material?.unitCost || 0) * i.quantity, 0);
+    const revenue = p.invoices.reduce((s, inv) => s + (+inv.subtotal - +(inv.discount || 0)), 0);
+    const itemMap = {};
+    allItems.forEach(i => { itemMap[i.description] = (itemMap[i.description] || 0) + i.quantity; });
+    const itemsSummary = Object.entries(itemMap).map(([desc, qty]) => `${desc} ×${qty}`).join(', ');
+    return {
+      ...p,
+      contractValue: p.contract?.value || 0,
+      totalExpenses: p.expenses.reduce((s, e) => s + e.amount, 0),
+      totalInvoiced: p.invoices.reduce((s, inv) => s + inv.total, 0),
+      totalCollected: p.invoices.reduce((s, inv) => s + inv.payments.reduce((ps, pay) => ps + pay.amount, 0), 0),
+      grossProfit: revenue - cost,
+      itemsSummary,
+    };
+  }));
+});
+
+// Single project financial detail — budget, invoices, expenses, gross profit per line
+router.get('/projects/:id', auth, async (req, res) => {
+  const id = +req.params.id;
+  const project = await prisma.project.findUnique({
+    where: { id },
+    include: {
+      customer: { select: { name: true } },
+      contract: { select: { value: true } },
+      invoices: {
+        select: {
+          id: true, total: true, subtotal: true, discount: true, tax: true, status: true, issueDate: true, createdAt: true,
+          payments: { select: { amount: true } },
+          items: { select: { description: true, quantity: true, unitPrice: true, material: { select: { unitCost: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+      expenses: { select: { id: true, description: true, category: true, amount: true, expenseDate: true }, orderBy: { expenseDate: 'desc' } },
+      warranty: { select: { status: true, endDate: true } },
+    },
+  });
+  if (!project) return res.status(404).json({ error: 'Not found' });
+
+  const lines = project.invoices.flatMap(inv =>
+    inv.items.map(i => ({
+      invoiceId: inv.id,
+      description: i.description,
+      quantity: i.quantity,
+      unitCost: i.material?.unitCost || 0,
+      unitPrice: i.unitPrice,
+      profit: (i.unitPrice - (i.material?.unitCost || 0)) * i.quantity,
+    }))
+  );
+
+  const totalInvoiced  = project.invoices.reduce((s, inv) => s + inv.total, 0);
+  const totalCollected = project.invoices.reduce((s, inv) => s + inv.payments.reduce((ps, p) => ps + p.amount, 0), 0);
+  const totalExpenses  = project.expenses.reduce((s, e) => s + e.amount, 0);
+  const revenue = project.invoices.reduce((s, inv) => s + (+inv.subtotal - +(inv.discount || 0)), 0);
+  const cogs = lines.reduce((s, l) => s + l.unitCost * l.quantity, 0);
+  const grossProfit = revenue - cogs;
+
+  res.json({
+    ...project,
+    contractValue: project.contract?.value || 0,
+    totalInvoiced, totalCollected, totalExpenses, grossProfit,
+    lines,
+  });
 });
 
 // Inventory

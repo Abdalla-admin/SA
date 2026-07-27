@@ -103,7 +103,7 @@ export default function Invoices() {
     its[idx] = {
       ...its[idx],
       materialId:  matId,
-      description: mat ? mat.name : its[idx].description,
+      description: mat ? `${mat.name}${mat.brand ? ` (${mat.brand})` : ''}${mat.specs ? ` – ${mat.specs}` : ''}` : its[idx].description,
       unitPrice:   mat ? (mat.sellingPrice || mat.unitCost) : its[idx].unitPrice,
     };
     const sub = its.reduce((s,i) => s + +i.quantity * +i.unitPrice, 0);
@@ -300,7 +300,7 @@ export default function Invoices() {
                   <select value={item.materialId||''} onChange={e=>pickMaterial(idx,e.target.value)}
                     className="col-span-3 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-400 bg-orange-50">
                     <option value="">— Custom —</option>
-                    {materials.map(m=><option key={m.id} value={m.id}>{m.name} ({m.unit}) — {m.quantity} left</option>)}
+                    {materials.map(m=><option key={m.id} value={m.id}>{m.name}{m.brand?` · ${m.brand}`:''}{m.specs?` — ${m.specs}`:''}</option>)}
                   </select>
                   <input placeholder="Description" value={item.description} onChange={e=>setLine(idx,'description',e.target.value)} className="col-span-4 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
                   <input type="number" min="0.01" step="any" value={item.quantity} onChange={e=>setLine(idx,'quantity',+e.target.value)} className="col-span-2 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>

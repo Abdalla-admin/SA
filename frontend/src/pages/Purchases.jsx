@@ -5,7 +5,7 @@ import StatusBadge from '../components/StatusBadge';
 import { useDialog } from '../context/DialogContext';
 import { purCode } from '../utils/docCode';
 
-const emptyForm = { vendorId:'', bankAccountId:'', notes:'', items:[{materialId:'',quantity:1,unitCost:0,totalCost:0}] };
+const emptyForm = { vendorId:'', bankAccountId:'', orderDate: new Date().toISOString().split('T')[0], notes:'', items:[{materialId:'',quantity:1,unitCost:0,totalCost:0}] };
 
 const Field = ({ label, value }) => (
   <div>
@@ -41,6 +41,9 @@ export default function Purchases() {
   const [form, setForm]           = useState(emptyForm);
   const [error, setError]         = useState('');
   const [viewed, setViewed]       = useState(null);
+  const [receiveModal, setReceiveModal] = useState(null);
+  const [receiveDate, setReceiveDate]   = useState('');
+  const [receiveError, setReceiveError] = useState('');
 
   const load = () => client.get('/purchases').then(r => setItems(r.data));
 
@@ -69,6 +72,7 @@ export default function Purchases() {
     const payload = {
       vendorId:      form.vendorId      ? +form.vendorId      : null,
       bankAccountId: form.bankAccountId ? +form.bankAccountId : null,
+      orderDate: form.orderDate || null,
       notes: form.notes || null,
       items: form.items.map(i => ({
         materialId: +i.materialId,
@@ -97,6 +101,7 @@ export default function Purchases() {
       id: po.id,
       vendorId: po.vendorId || '',
       bankAccountId: po.bankAccountId || '',
+      orderDate: po.orderDate ? po.orderDate.slice(0,10) : '',
       notes: po.notes || '',
       items: po.items.map(i => ({ materialId: i.materialId, quantity: i.quantity, unitCost: i.unitCost, totalCost: i.totalCost })),
     });
@@ -104,17 +109,21 @@ export default function Purchases() {
     setModal('form');
   };
 
-  const receive = async po => {
-    const accountName = po.bankAccount?.name || 'no bank account (expense only)';
-    const msg = po.bankAccountId
-      ? `Receive PO-${String(po.id).padStart(4,'0')}?\n\n$ ${po.totalAmount.toLocaleString()} will be deducted from "${accountName}" and stock will be updated.`
-      : `Receive PO-${String(po.id).padStart(4,'0')}?\n\nNo bank account selected — stock will be updated and expense logged only.`;
-    if (!await confirm(msg, { title: 'Confirm Receive', confirmLabel: 'Receive' })) return;
+  const openReceive = po => {
+    setReceiveModal(po);
+    setReceiveDate(new Date().toISOString().split('T')[0]);
+    setReceiveError('');
+  };
+
+  const confirmReceive = async e => {
+    e.preventDefault();
+    setReceiveError('');
     try {
-      await client.post(`/purchases/${po.id}/receive`);
+      await client.post(`/purchases/${receiveModal.id}/receive`, { receivedAt: receiveDate });
+      setReceiveModal(null);
       load();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to receive PO');
+      setReceiveError(err.response?.data?.error || 'Failed to receive PO');
     }
   };
 
@@ -175,7 +184,7 @@ export default function Purchases() {
                     )}
                     <button onClick={() => printPO(p)} className="px-3 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-medium">🖨 Print</button>
                     {p.status !== 'RECEIVED' && p.status !== 'CANCELLED' && (
-                      <button onClick={() => receive(p)} className="px-3 py-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium">Receive</button>
+                      <button onClick={() => openReceive(p)} className="px-3 py-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium">Receive</button>
                     )}
                     {p.status === 'RECEIVED' && (
                       <button onClick={() => unreceive(p)} className="px-3 py-1 rounded-md bg-yellow-100 text-yellow-700 hover:bg-yellow-200 text-xs font-medium">Unreceive</button>
@@ -242,7 +251,7 @@ export default function Purchases() {
         <Modal title={form.id ? `Edit PO-${String(form.id).padStart(4,'0')}` : 'New Purchase Order'} onClose={() => setModal(null)} wide>
           <form onSubmit={save} className="space-y-4">
             {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Vendor</label>
                 <select value={form.vendorId} onChange={e=>setForm(f=>({...f,vendorId:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
@@ -256,6 +265,10 @@ export default function Purchases() {
                   <option value="">No bank account (expense only)</option>
                   {bankAccounts.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Order Date</label>
+                <input type="date" required value={form.orderDate} onChange={e=>setForm(f=>({...f,orderDate:e.target.value}))} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
               </div>
             </div>
             <div>
@@ -295,6 +308,28 @@ export default function Purchases() {
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setModal(null)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
               <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">{form.id ? 'Save Changes' : 'Create PO'}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Receive Modal */}
+      {receiveModal && (
+        <Modal title={`Receive PO-${String(receiveModal.id).padStart(4,'0')}`} onClose={()=>setReceiveModal(null)}>
+          <form onSubmit={confirmReceive} className="space-y-4">
+            {receiveError && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{receiveError}</div>}
+            <p className="text-sm text-gray-600">
+              {receiveModal.bankAccountId
+                ? `$ ${(+receiveModal.totalAmount).toLocaleString()} will be deducted from "${receiveModal.bankAccount?.name}" and stock will be updated.`
+                : 'No bank account selected — stock will be updated and expense logged only.'}
+            </p>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Received Date</label>
+              <input type="date" required value={receiveDate} onChange={e=>setReceiveDate(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={()=>setReceiveModal(null)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
+              <button type="submit" className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Receive</button>
             </div>
           </form>
         </Modal>

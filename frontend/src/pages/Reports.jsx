@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import client from '../api/client';
 import StatusBadge from '../components/StatusBadge';
+import Modal from '../components/Modal';
 
 const fmt    = n => '$ ' + (+n||0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 const fmtD   = d => d ? new Date(d).toLocaleDateString() : '—';
@@ -308,7 +309,7 @@ function SalesReport() {
           </div>
 
           {/* Summary totals */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 text-center">
               <p className="text-xs text-gray-500 mb-1">Total Invoiced</p>
               <p className="text-xl font-bold text-gray-900">{fmt(data.total)}</p>
@@ -320,6 +321,10 @@ function SalesReport() {
             <div className="bg-red-50 rounded-xl p-4 shadow-sm border border-red-100 text-center">
               <p className="text-xs text-gray-500 mb-1">Outstanding</p>
               <p className="text-xl font-bold text-red-600">{fmt(data.outstanding)}</p>
+            </div>
+            <div className="bg-orange-50 rounded-xl p-4 shadow-sm border border-orange-100 text-center">
+              <p className="text-xs text-gray-500 mb-1">Gross Profit</p>
+              <p className="text-xl font-bold text-orange-600">{fmt(data.totalProfit)}</p>
             </div>
           </div>
 
@@ -333,7 +338,8 @@ function SalesReport() {
                 const rows = (data.invoices||[]).map(inv => {
                   const paid = (inv.payments||[]).reduce((s,p)=>s+ +p.amount,0);
                   const bal  = +inv.total - paid;
-                  return `<tr><td>SA-INV-${new Date(inv.createdAt).toISOString().slice(0,10).replace(/-/g,'')}-${String(inv.id).padStart(3,'0')}</td><td>${inv.customer?.name||'—'}</td><td>${fmtD(inv.dueDate)}</td><td style="text-align:right">${fmt(inv.total)}</td><td style="text-align:right;color:#16a34a">${paid>0?fmt(paid):'—'}</td><td style="text-align:right;color:#dc2626">${bal>0?fmt(bal):'Settled'}</td><td>${inv.status}</td></tr>`;
+                  const itemsSummary = (inv.items||[]).map(i=>`${i.description} ×${i.quantity}`).join(', ') || '—';
+                  return `<tr><td>SA-INV-${new Date(inv.createdAt).toISOString().slice(0,10).replace(/-/g,'')}-${String(inv.id).padStart(3,'0')}</td><td>${inv.customer?.name||'—'}</td><td>${itemsSummary}</td><td>${fmtD(inv.dueDate)}</td><td style="text-align:right">${fmt(inv.total)}</td><td style="text-align:right;color:#ea580c">${fmt(inv.grossProfit)}</td><td style="text-align:right;color:#16a34a">${paid>0?fmt(paid):'—'}</td><td style="text-align:right;color:#dc2626">${bal>0?fmt(bal):'Settled'}</td><td>${inv.status}</td></tr>`;
                 }).join('');
                 const totalPaid = data.invoices?.reduce((s,i)=>s+(i.payments||[]).reduce((ps,p)=>ps+ +p.amount,0),0)||0;
                 const totalBal  = data.invoices?.reduce((s,i)=>s+(+i.total-(i.payments||[]).reduce((ps,p)=>ps+ +p.amount,0)),0)||0;
@@ -342,30 +348,34 @@ function SalesReport() {
                     <div class="card"><div class="card-label">Total Invoiced</div><div class="card-value">${fmt(data.total)}</div></div>
                     <div class="card"><div class="card-label">Collected</div><div class="card-value" style="color:#16a34a">${fmt(data.collected)}</div></div>
                     <div class="card"><div class="card-label">Outstanding</div><div class="card-value" style="color:#dc2626">${fmt(data.outstanding)}</div></div>
+                    <div class="card"><div class="card-label">Gross Profit</div><div class="card-value" style="color:#ea580c">${fmt(data.totalProfit)}</div></div>
                   </div>
-                  <table><thead><tr><th>Code</th><th>Customer</th><th>Due Date</th><th style="text-align:right">Total</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+                  <table><thead><tr><th>Code</th><th>Customer</th><th>Items</th><th>Due Date</th><th style="text-align:right">Total</th><th style="text-align:right">Profit</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
                   <tbody>${rows}</tbody>
-                  <tfoot><tr style="font-weight:bold;background:#f3f4f6"><td colspan="3">TOTAL</td><td style="text-align:right">${fmt(data.total)}</td><td style="text-align:right;color:#16a34a">${fmt(totalPaid)}</td><td style="text-align:right;color:#dc2626">${fmt(totalBal)}</td><td></td></tr></tfoot></table>`
+                  <tfoot><tr style="font-weight:bold;background:#f3f4f6"><td colspan="4">TOTAL</td><td style="text-align:right">${fmt(data.total)}</td><td style="text-align:right;color:#ea580c">${fmt(data.totalProfit)}</td><td style="text-align:right;color:#16a34a">${fmt(totalPaid)}</td><td style="text-align:right;color:#dc2626">${fmt(totalBal)}</td><td></td></tr></tfoot></table>`
                 );
               }} className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs text-gray-600 font-medium">🖨 Print</button>
             </div>
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                <tr>{['Code','Customer','Due Date','Total','Paid','Balance','Status'].map(h=><th key={h} className="px-4 py-2 text-left">{h}</th>)}</tr>
+                <tr>{['Code','Customer','Items','Due Date','Total','Profit','Paid','Balance','Status'].map(h=><th key={h} className="px-4 py-2 text-left">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {data.invoices?.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No invoices found</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">No invoices found</td></tr>
                 )}
                 {data.invoices?.map(inv => {
                   const paid = (inv.payments||[]).reduce((s,p)=>s+ +p.amount,0);
                   const bal  = +inv.total - paid;
+                  const itemsSummary = (inv.items||[]).map(i=>`${i.description} ×${i.quantity}`).join(', ');
                   return (
                     <tr key={inv.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2 font-mono text-xs text-gray-500">SA-INV-{new Date(inv.createdAt).toISOString().slice(0,10).replace(/-/g,'')}-{String(inv.id).padStart(3,'0')}</td>
                       <td className="px-4 py-2 font-medium">{inv.customer?.name||'—'}</td>
+                      <td className="px-4 py-2 text-gray-500 text-xs max-w-xs truncate" title={itemsSummary}>{itemsSummary||'—'}</td>
                       <td className="px-4 py-2 text-gray-500">{fmtD(inv.dueDate)}</td>
                       <td className="px-4 py-2 font-medium">{fmt(inv.total)}</td>
+                      <td className={`px-4 py-2 font-medium ${inv.grossProfit<0?'text-red-600':'text-orange-600'}`}>{fmt(inv.grossProfit)}</td>
                       <td className="px-4 py-2 text-green-600">{paid>0?fmt(paid):'—'}</td>
                       <td className="px-4 py-2">{bal>0?<span className="text-red-600 font-medium">{fmt(bal)}</span>:<span className="text-green-500 text-xs font-semibold">Settled</span>}</td>
                       <td className="px-4 py-2"><StatusBadge status={inv.status}/></td>
@@ -375,8 +385,9 @@ function SalesReport() {
               </tbody>
               <tfoot className="bg-orange-50 border-t-2 border-orange-200 text-sm font-bold">
                 <tr>
-                  <td colSpan={3} className="px-4 py-3 text-gray-700">TOTAL ({data.invoices?.length||0} invoices)</td>
+                  <td colSpan={4} className="px-4 py-3 text-gray-700">TOTAL ({data.invoices?.length||0} invoices)</td>
                   <td className="px-4 py-3 text-gray-900">{fmt(data.total)}</td>
+                  <td className="px-4 py-3 text-orange-600">{fmt(data.totalProfit)}</td>
                   <td className="px-4 py-3 text-green-700">{fmt(data.collected)}</td>
                   <td className="px-4 py-3 text-red-600">{fmt(data.outstanding)}</td>
                   <td/>
@@ -616,6 +627,7 @@ const PRJ_STATUSES = ['','PLANNING','DESIGN','PROCUREMENT','EXECUTION','COMMISSI
 function ProjectsReport() {
   const [data, setData]         = useState(null);
   const [statusFilter, setStatus] = useState('');
+  const [viewed, setViewed]     = useState(null);
 
   const load = async (sf = statusFilter) => {
     const qs = sf ? `?status=${sf}` : '';
@@ -624,14 +636,54 @@ function ProjectsReport() {
   };
   useEffect(() => { load(); }, []);
 
+  const openView = async id => {
+    const { data: d } = await client.get(`/reports/projects/${id}`);
+    setViewed(d);
+  };
+
+  const printProjectDetail = p => {
+    const balance = p.totalInvoiced - p.totalCollected;
+    const invRows = p.invoices.map(inv => {
+      const paid = inv.payments.reduce((s,pay)=>s+pay.amount,0);
+      return `<tr><td>INV-${String(inv.id).padStart(4,'0')}</td><td>${fmtD(inv.issueDate||inv.createdAt)}</td><td>${inv.status}</td><td style="text-align:right">${fmt(inv.total)}</td><td style="text-align:right;color:#16a34a">${fmt(paid)}</td></tr>`;
+    }).join('') || '<tr><td colspan="5" style="text-align:center;color:#9ca3af">No invoices</td></tr>';
+    const expRows = p.expenses.map(e =>
+      `<tr><td>${fmtD(e.expenseDate)}</td><td>${e.category||'—'}</td><td>${e.description||'—'}</td><td style="text-align:right">${fmt(e.amount)}</td></tr>`
+    ).join('') || '<tr><td colspan="4" style="text-align:center;color:#9ca3af">No expenses</td></tr>';
+    const lineRows = p.lines.map(l =>
+      `<tr><td>${l.description}</td><td style="text-align:right">${fmtQty(l.quantity)}</td><td style="text-align:right">${fmt(l.unitCost)}</td><td style="text-align:right">${fmt(l.unitPrice)}</td><td style="text-align:right;color:${l.profit>=0?'#16a34a':'#dc2626'}">${fmt(l.profit)}</td></tr>`
+    ).join('') || '<tr><td colspan="5" style="text-align:center;color:#9ca3af">No line items sold</td></tr>';
+
+    printWindow(`Project Report — ${p.name}`, p.customer?.name || null,
+      `<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="card"><div class="card-label">Budget (Contract)</div><div class="card-value">${fmt(p.contractValue)}</div></div>
+        <div class="card"><div class="card-label">Invoiced</div><div class="card-value">${fmt(p.totalInvoiced)}</div></div>
+        <div class="card"><div class="card-label">Collected</div><div class="card-value" style="color:#16a34a">${fmt(p.totalCollected)}</div></div>
+        <div class="card"><div class="card-label">Balance</div><div class="card-value" style="color:#dc2626">${fmt(balance)}</div></div>
+        <div class="card"><div class="card-label">Expenses</div><div class="card-value" style="color:#dc2626">${fmt(p.totalExpenses)}</div></div>
+        <div class="card"><div class="card-label">Gross Profit</div><div class="card-value" style="color:#ea580c">${fmt(p.grossProfit)}</div></div>
+      </div>
+      <div class="section">INVOICES</div>
+      <table><thead><tr><th>Code</th><th>Date</th><th>Status</th><th style="text-align:right">Total</th><th style="text-align:right">Paid</th></tr></thead><tbody>${invRows}</tbody></table>
+      <div class="section">EXPENSES</div>
+      <table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead><tbody>${expRows}</tbody></table>
+      <div class="section">GROSS PROFIT PER LINE</div>
+      <table><thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Buy Price</th><th style="text-align:right">Sell Price</th><th style="text-align:right">Profit</th></tr></thead>
+      <tbody>${lineRows}</tbody>
+      <tfoot><tr style="font-weight:bold;background:#f3f4f6"><td colspan="4">TOTAL GROSS PROFIT</td><td style="text-align:right;color:#ea580c">${fmt(p.grossProfit)}</td></tr></tfoot></table>`
+    );
+  };
+
   if (!data) return null;
   const totalContract = data.reduce((s,p)=>s+p.contractValue,0);
   const totalExp      = data.reduce((s,p)=>s+p.totalExpenses,0);
+  const totalProfit   = data.reduce((s,p)=>s+(p.grossProfit||0),0);
 
   const doPrint = () => {
-    const rows = data.map(p=>{const m=p.contractValue-p.totalExpenses;return`<tr><td>${p.name}</td><td>${p.customer?.name||'—'}</td><td>${p.status}</td><td style="text-align:right">${fmt(p.contractValue)}</td><td style="text-align:right">${fmt(p.totalInvoiced)}</td><td style="text-align:right;color:#dc2626">${fmt(p.totalExpenses)}</td><td style="text-align:right;color:${m>=0?'#16a34a':'#dc2626'};font-weight:bold">${fmt(m)}</td></tr>`;}).join('');
+    const rows = data.map(p=>{const m=p.contractValue-p.totalExpenses;return`<tr><td>${p.name}</td><td>${p.customer?.name||'—'}</td><td>${p.itemsSummary||'—'}</td><td>${p.status}</td><td style="text-align:right">${fmt(p.contractValue)}</td><td style="text-align:right">${fmt(p.totalInvoiced)}</td><td style="text-align:right;color:#ea580c">${fmt(p.grossProfit)}</td><td style="text-align:right;color:#dc2626">${fmt(p.totalExpenses)}</td><td style="text-align:right;color:${m>=0?'#16a34a':'#dc2626'};font-weight:bold">${fmt(m)}</td></tr>`;}).join('');
     printWindow('Projects Report', null,
-      `<table><thead><tr><th>Project</th><th>Customer</th><th>Status</th><th style="text-align:right">Contract</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Expenses</th><th style="text-align:right">Margin</th></tr></thead><tbody>${rows}</tbody></table>`
+      `<table><thead><tr><th>Project</th><th>Customer</th><th>Items</th><th>Status</th><th style="text-align:right">Contract</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Gross Profit</th><th style="text-align:right">Expenses</th><th style="text-align:right">Margin</th></tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr style="font-weight:bold;background:#f3f4f6"><td colspan="4">TOTAL</td><td style="text-align:right">${fmt(totalContract)}</td><td style="text-align:right">${fmt(data.reduce((s,p)=>s+p.totalInvoiced,0))}</td><td style="text-align:right;color:#ea580c">${fmt(totalProfit)}</td><td style="text-align:right;color:#dc2626">${fmt(totalExp)}</td><td style="text-align:right;color:${(totalContract-totalExp)>=0?'#16a34a':'#dc2626'}">${fmt(totalContract-totalExp)}</td></tr></tfoot></table>`
     );
   };
 
@@ -646,10 +698,11 @@ function ProjectsReport() {
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <SummaryCard label="Total Contract Value" value={fmt(totalContract)} color="text-green-600" />
         <SummaryCard label="Total Expenses"       value={fmt(totalExp)}      color="text-red-600" />
         <SummaryCard label="Gross Margin"         value={fmt(totalContract-totalExp)} color={totalContract-totalExp>=0?'text-blue-600':'text-red-600'} />
+        <SummaryCard label="Gross Profit (Item Sell − Buy)" value={fmt(totalProfit)} color={totalProfit>=0?'text-orange-600':'text-red-600'} />
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <div className="px-4 py-2 border-b bg-gray-50 flex justify-end">
@@ -657,7 +710,7 @@ function ProjectsReport() {
         </div>
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-            <tr>{['Project','Customer','Status','Contract Value','Invoiced','Collected','Expenses','Margin','Warranty'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['Project','Customer','Items','Status','Contract Value','Invoiced','Gross Profit','Collected','Expenses','Margin','Warranty','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {data.map(p => {
@@ -666,30 +719,128 @@ function ProjectsReport() {
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 font-medium">{p.name}</td>
                   <td className="px-4 py-2 text-gray-500">{p.customer?.name||'—'}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs max-w-xs truncate" title={p.itemsSummary}>{p.itemsSummary||'—'}</td>
                   <td className="px-4 py-2"><StatusBadge status={p.status}/></td>
                   <td className="px-4 py-2">{fmt(p.contractValue)}</td>
                   <td className="px-4 py-2">{fmt(p.totalInvoiced)}</td>
+                  <td className={`px-4 py-2 font-medium ${p.grossProfit<0?'text-red-600':'text-orange-600'}`}>{fmt(p.grossProfit)}</td>
                   <td className="px-4 py-2 text-green-600">{fmt(p.totalCollected)}</td>
                   <td className="px-4 py-2 text-red-500">{fmt(p.totalExpenses)}</td>
                   <td className={`px-4 py-2 font-semibold ${margin>=0?'text-green-600':'text-red-600'}`}>{fmt(margin)}</td>
                   <td className="px-4 py-2">{p.warranty?<StatusBadge status={p.warranty.status}/>:'—'}</td>
+                  <td className="px-4 py-2">
+                    <button onClick={()=>openView(p.id)} className="px-3 py-1 rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 text-xs font-medium">View</button>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
           <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-semibold text-sm">
             <tr>
-              <td colSpan={3} className="px-4 py-2 text-gray-600">TOTAL</td>
+              <td colSpan={4} className="px-4 py-2 text-gray-600">TOTAL</td>
               <td className="px-4 py-2">{fmt(data.reduce((s,p)=>s+p.contractValue,0))}</td>
               <td className="px-4 py-2">{fmt(data.reduce((s,p)=>s+p.totalInvoiced,0))}</td>
+              <td className="px-4 py-2 text-orange-600">{fmt(totalProfit)}</td>
               <td className="px-4 py-2 text-green-600">{fmt(data.reduce((s,p)=>s+(p.totalCollected||0),0))}</td>
               <td className="px-4 py-2 text-red-600">{fmt(data.reduce((s,p)=>s+p.totalExpenses,0))}</td>
               <td className={`px-4 py-2 ${(totalContract-totalExp)>=0?'text-green-600':'text-red-600'}`}>{fmt(totalContract-totalExp)}</td>
+              <td />
               <td />
             </tr>
           </tfoot>
         </table>
       </div>
+
+      {/* Project Detail Modal */}
+      {viewed && (
+        <Modal title={viewed.name} onClose={()=>setViewed(null)} wide>
+          <div className="space-y-5">
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+              <SummaryCard label="Budget (Contract)" value={fmt(viewed.contractValue)} />
+              <SummaryCard label="Invoiced" value={fmt(viewed.totalInvoiced)} />
+              <SummaryCard label="Collected" value={fmt(viewed.totalCollected)} color="text-green-600" />
+              <SummaryCard label="Balance" value={fmt(viewed.totalInvoiced-viewed.totalCollected)} color="text-red-600" />
+              <SummaryCard label="Expenses" value={fmt(viewed.totalExpenses)} color="text-red-600" />
+              <SummaryCard label="Gross Profit" value={fmt(viewed.grossProfit)} color={viewed.grossProfit>=0?'text-orange-600':'text-red-600'} />
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Invoices</p>
+              <table className="w-full text-sm border rounded-lg overflow-hidden">
+                <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                  <tr>{['Code','Date','Status','Total','Paid'].map(h=><th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {viewed.invoices.length===0 && <tr><td colSpan={5} className="px-3 py-4 text-center text-gray-400">No invoices</td></tr>}
+                  {viewed.invoices.map(inv=>{
+                    const paid = inv.payments.reduce((s,p)=>s+p.amount,0);
+                    return (
+                      <tr key={inv.id}>
+                        <td className="px-3 py-2 font-mono text-xs">INV-{String(inv.id).padStart(4,'0')}</td>
+                        <td className="px-3 py-2 text-gray-500">{fmtD(inv.issueDate||inv.createdAt)}</td>
+                        <td className="px-3 py-2"><StatusBadge status={inv.status}/></td>
+                        <td className="px-3 py-2">{fmt(inv.total)}</td>
+                        <td className="px-3 py-2 text-green-600">{fmt(paid)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Expenses</p>
+              <table className="w-full text-sm border rounded-lg overflow-hidden">
+                <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                  <tr>{['Date','Category','Description','Amount'].map(h=><th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {viewed.expenses.length===0 && <tr><td colSpan={4} className="px-3 py-4 text-center text-gray-400">No expenses</td></tr>}
+                  {viewed.expenses.map(e=>(
+                    <tr key={e.id}>
+                      <td className="px-3 py-2 text-gray-500">{fmtD(e.expenseDate)}</td>
+                      <td className="px-3 py-2">{e.category||'—'}</td>
+                      <td className="px-3 py-2 text-gray-500">{e.description||'—'}</td>
+                      <td className="px-3 py-2 text-red-600">{fmt(e.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gross Profit Per Line</p>
+              <table className="w-full text-sm border rounded-lg overflow-hidden">
+                <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                  <tr>{['Item','Qty','Buy Price','Sell Price','Profit'].map(h=><th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {viewed.lines.length===0 && <tr><td colSpan={5} className="px-3 py-4 text-center text-gray-400">No line items sold</td></tr>}
+                  {viewed.lines.map((l,i)=>(
+                    <tr key={i}>
+                      <td className="px-3 py-2">{l.description}</td>
+                      <td className="px-3 py-2">{fmtQty(l.quantity)}</td>
+                      <td className="px-3 py-2">{fmt(l.unitCost)}</td>
+                      <td className="px-3 py-2">{fmt(l.unitPrice)}</td>
+                      <td className={`px-3 py-2 font-medium ${l.profit<0?'text-red-600':'text-orange-600'}`}>{fmt(l.profit)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-orange-50 border-t-2 border-orange-200 font-bold">
+                  <tr>
+                    <td colSpan={4} className="px-3 py-2 text-gray-700">TOTAL GROSS PROFIT</td>
+                    <td className="px-3 py-2 text-orange-600">{fmt(viewed.grossProfit)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <button onClick={()=>printProjectDetail(viewed)} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm font-medium">🖨 Print</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -61,18 +61,19 @@ router.post('/:id/receive', auth, async (req, res) => {
   const purchase = await prisma.purchase.findUnique({ where: { id: +req.params.id }, include });
   if (!purchase) return res.status(404).json({ error: 'Not found' });
   if (purchase.status === 'RECEIVED') return res.status(400).json({ error: 'Already received' });
+  const receivedAt = req.body.receivedAt ? new Date(req.body.receivedAt) : new Date();
 
   const ops = [
-    prisma.purchase.update({ where: { id: purchase.id }, data: { status: 'RECEIVED', receivedAt: new Date() } }),
+    prisma.purchase.update({ where: { id: purchase.id }, data: { status: 'RECEIVED', receivedAt } }),
     ...purchase.items.map(item =>
-      prisma.material.update({ where: { id: item.materialId }, data: { quantity: { increment: item.quantity } } })
+      prisma.material.update({ where: { id: item.materialId }, data: { quantity: { increment: item.quantity }, unitCost: item.unitCost } })
     ),
     prisma.expense.create({
       data: {
         description: `PO-${String(purchase.id).padStart(4,'0')} – ${purchase.vendor?.name || 'Unknown vendor'}`,
         category: 'purchase',
         amount: purchase.totalAmount,
-        expenseDate: new Date(),
+        expenseDate: receivedAt,
         bankAccountId: purchase.bankAccountId || null,
       },
     }),
