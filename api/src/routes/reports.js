@@ -121,7 +121,7 @@ router.get('/projects', auth, async (req, res) => {
     const itemsSummary = Object.entries(itemMap).map(([desc, qty]) => `${desc} ×${qty}`).join(', ');
     return {
       ...p,
-      contractValue: p.contract?.value || 0,
+      contractValue: p.budget || p.contract?.value || 0,
       totalExpenses: p.expenses.reduce((s, e) => s + e.amount, 0),
       totalInvoiced: p.invoices.reduce((s, inv) => s + inv.total, 0),
       totalCollected: p.invoices.reduce((s, inv) => s + inv.payments.reduce((ps, pay) => ps + pay.amount, 0), 0),
@@ -173,7 +173,7 @@ router.get('/projects/:id', auth, async (req, res) => {
 
   res.json({
     ...project,
-    contractValue: project.contract?.value || 0,
+    contractValue: project.budget || project.contract?.value || 0,
     totalInvoiced, totalCollected, totalExpenses, grossProfit,
     lines,
   });

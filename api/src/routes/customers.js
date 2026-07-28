@@ -3,7 +3,7 @@ const prisma = require('../middleware/prisma');
 const { auth } = require('../middleware/auth');
 
 router.get('/', auth, async (req, res) => {
-  const customers = await prisma.customer.findMany({ orderBy: { name: 'asc' } });
+  const customers = await prisma.customer.findMany({ orderBy: { createdAt: 'desc' } });
   res.json(customers);
 });
 

@@ -664,9 +664,11 @@ function ProjectsReport() {
         <div class="card"><div class="card-label">Gross Profit</div><div class="card-value" style="color:#ea580c">${fmt(p.grossProfit)}</div></div>
       </div>
       <div class="section">INVOICES</div>
-      <table><thead><tr><th>Code</th><th>Date</th><th>Status</th><th style="text-align:right">Total</th><th style="text-align:right">Paid</th></tr></thead><tbody>${invRows}</tbody></table>
+      <table><thead><tr><th>Code</th><th>Date</th><th>Status</th><th style="text-align:right">Total</th><th style="text-align:right">Paid</th></tr></thead><tbody>${invRows}</tbody>
+      <tfoot><tr style="font-weight:bold;background:#f3f4f6"><td colspan="3">TOTAL</td><td style="text-align:right">${fmt(p.totalInvoiced)}</td><td style="text-align:right;color:#16a34a">${fmt(p.totalCollected)}</td></tr></tfoot></table>
       <div class="section">EXPENSES</div>
-      <table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead><tbody>${expRows}</tbody></table>
+      <table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead><tbody>${expRows}</tbody>
+      <tfoot><tr style="font-weight:bold;background:#f3f4f6"><td colspan="3">TOTAL</td><td style="text-align:right;color:#dc2626">${fmt(p.totalExpenses)}</td></tr></tfoot></table>
       <div class="section">GROSS PROFIT PER LINE</div>
       <table><thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Buy Price</th><th style="text-align:right">Sell Price</th><th style="text-align:right">Profit</th></tr></thead>
       <tbody>${lineRows}</tbody>
@@ -785,6 +787,15 @@ function ProjectsReport() {
                     );
                   })}
                 </tbody>
+                {viewed.invoices.length>0 && (
+                  <tfoot className="bg-orange-50 border-t-2 border-orange-200 font-bold">
+                    <tr>
+                      <td colSpan={3} className="px-3 py-2 text-gray-700">TOTAL</td>
+                      <td className="px-3 py-2">{fmt(viewed.totalInvoiced)}</td>
+                      <td className="px-3 py-2 text-green-700">{fmt(viewed.totalCollected)}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
 
@@ -805,6 +816,14 @@ function ProjectsReport() {
                     </tr>
                   ))}
                 </tbody>
+                {viewed.expenses.length>0 && (
+                  <tfoot className="bg-orange-50 border-t-2 border-orange-200 font-bold">
+                    <tr>
+                      <td colSpan={3} className="px-3 py-2 text-gray-700">TOTAL</td>
+                      <td className="px-3 py-2 text-red-600">{fmt(viewed.totalExpenses)}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
 

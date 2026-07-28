@@ -291,7 +291,7 @@ export default function Purchases() {
                 <div key={idx} className="grid grid-cols-12 gap-2 mb-2 items-center">
                   <select required value={item.materialId} onChange={e=>setLineItem(idx,'materialId',e.target.value)} className="col-span-5 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
                     <option value="">Select material</option>
-                    {materials.map(m=><option key={m.id} value={m.id}>{m.name} ({m.unit})</option>)}
+                    {materials.map(m=><option key={m.id} value={m.id}>{m.name}{m.brand?` · ${m.brand}`:''}{m.specs?` — ${m.specs}`:''}</option>)}
                   </select>
                   <input type="number" placeholder="Qty" min="0" step="any" required value={item.quantity} onChange={e=>setLineItem(idx,'quantity',e.target.value)} className="col-span-2 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
                   <input type="number" placeholder="Unit Cost" min="0" step="0.01" required value={item.unitCost} onChange={e=>setLineItem(idx,'unitCost',e.target.value)} className="col-span-2 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>

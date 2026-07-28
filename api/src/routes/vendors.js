@@ -3,7 +3,7 @@ const prisma = require('../middleware/prisma');
 const { auth } = require('../middleware/auth');
 
 router.get('/', auth, async (req, res) => {
-  res.json(await prisma.vendor.findMany({ orderBy: { name: 'asc' } }));
+  res.json(await prisma.vendor.findMany({ orderBy: { createdAt: 'desc' } }));
 });
 
 router.get('/:id', auth, async (req, res) => {
