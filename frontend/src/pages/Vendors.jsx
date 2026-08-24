@@ -18,8 +18,15 @@ export default function Vendors() {
   const [modal, setModal]   = useState(null); // 'form' | 'view' | null
   const [form, setForm]     = useState(empty);
   const [viewed, setViewed] = useState(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => { client.get('/vendors').then(r => setItems(r.data)); }, []);
+
+  const filtered = items.filter(v => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [v.name, v.contactPerson, v.category, v.email, v.phone].some(val => val?.toLowerCase().includes(q));
+  });
 
   const save = async e => {
     e.preventDefault();
@@ -47,13 +54,18 @@ export default function Vendors() {
         <button onClick={() => { setForm(empty); setModal('form'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New Vendor</button>
       </div>
 
+      <input type="text" placeholder="Search vendors..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full max-w-xs border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>{['Name','Contact Person','Item Description','Email','Phone','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {items.map(v=>(
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No vendors found</td></tr>
+            )}
+            {filtered.map(v=>(
               <tr key={v.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium">{v.name}</td>
                 <td className="px-4 py-3 text-gray-600 text-xs">{v.contactPerson||'—'}</td>

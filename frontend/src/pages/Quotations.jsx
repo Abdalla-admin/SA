@@ -21,6 +21,13 @@ export default function Quotations() {
   const [viewed, setViewed]       = useState(null);
   const [convertId, setConvertId] = useState(null);
   const [convertDue, setConvertDue] = useState('');
+  const [search, setSearch]       = useState('');
+
+  const filtered = items.filter(q => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return [boqCode(q.id, q.createdAt), q.customer?.name, q.project?.name, q.status].some(v => v?.toLowerCase().includes(term));
+  });
 
   useEffect(() => {
     client.get('/quotations').then(r => setItems(r.data));
@@ -180,13 +187,18 @@ export default function Quotations() {
         <button onClick={() => { setForm(emptyForm); setModal('form'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New Quotation</button>
       </div>
 
+      <input type="text" placeholder="Search quotations..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full max-w-xs border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>{['Code','Customer','Project','Items','Total','Valid Until','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {items.map(q => (
+            {filtered.length === 0 && (
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400 text-sm">No quotations found</td></tr>
+            )}
+            {filtered.map(q => (
               <tr key={q.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-mono text-xs text-gray-500">{boqCode(q.id, q.createdAt)}</td>
                 <td className="px-4 py-3">{q.customer?.name||'—'}</td>

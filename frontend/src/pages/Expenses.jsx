@@ -24,6 +24,13 @@ export default function Expenses() {
   const [form, setForm]             = useState(empty);
   const [viewed, setViewed]         = useState(null);
   const [customCat, setCustomCat]   = useState(false);
+  const [search, setSearch]         = useState('');
+
+  const filtered = items.filter(e => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [e.category, e.description, e.project?.name].some(v => v?.toLowerCase().includes(q));
+  });
 
   useEffect(() => {
     client.get('/expenses').then(r => setItems(r.data));
@@ -94,13 +101,18 @@ export default function Expenses() {
         <button onClick={openNew} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Add Expense</button>
       </div>
 
+      <input type="text" placeholder="Search expenses..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full max-w-xs border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>{['Category','Description','Project','Amount','Account','Date','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {items.map(e=>(
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">No expenses found</td></tr>
+            )}
+            {filtered.map(e=>(
               <tr key={e.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3"><span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full text-xs">{e.category||'—'}</span></td>
                 <td className="px-4 py-3 text-gray-600">{e.description || (e.items?.length ? `${e.items.length} item${e.items.length>1?'s':''}` : '—')}</td>

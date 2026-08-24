@@ -13,12 +13,19 @@ export default function Materials() {
   const [modal, setModal] = useState(null); // null | 'form'
   const [form, setForm] = useState(empty);
   const [customCat, setCustomCat] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     client.get('/materials').then(r => setItems(r.data));
   }, []);
 
   const allCats = [...new Set([...DEFAULT_CATS, ...items.map(m => m.category).filter(Boolean)])].sort();
+
+  const filtered = items.filter(m => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [m.name, m.category, m.brand, m.specs].some(v => v?.toLowerCase().includes(q));
+  });
 
   const openForm = (m = null) => {
     if (m) {
@@ -61,13 +68,18 @@ export default function Materials() {
         <button onClick={() => openForm()} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Add Item</button>
       </div>
 
+      <input type="text" placeholder="Search inventory..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full max-w-xs border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>{['Name','Category','Brand','Specs','Stock','Min Stock','Buy Price','Sell Price','Value','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {items.map(m=>(
+            {filtered.length === 0 && (
+              <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400 text-sm">No items found</td></tr>
+            )}
+            {filtered.map(m=>(
               <tr key={m.id} className={`hover:bg-gray-50 ${m.quantity<=m.minStock?'bg-red-50':''}`}>
                 <td className="px-4 py-3 font-medium">{m.name}</td>
                 <td className="px-4 py-3"><span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs">{m.category||'—'}</span></td>

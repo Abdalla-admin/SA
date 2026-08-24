@@ -18,8 +18,15 @@ export default function Customers() {
   const [modal, setModal]   = useState(null); // 'form' | 'view' | null
   const [form, setForm]     = useState(empty);
   const [viewed, setViewed] = useState(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => { client.get('/customers').then(r => setItems(r.data)); }, []);
+
+  const filtered = items.filter(c => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [c.name, c.email, c.phone, c.responsiblePerson].some(v => v?.toLowerCase().includes(q));
+  });
 
   const save = async e => {
     e.preventDefault();
@@ -48,13 +55,18 @@ export default function Customers() {
         <button onClick={() => { setForm(empty); setModal('form'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New Customer</button>
       </div>
 
+      <input type="text" placeholder="Search customers..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full max-w-xs border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>{['Name','Email','Phone','Responsible Person','Registered','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {items.map(c=>(
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No customers found</td></tr>
+            )}
+            {filtered.map(c=>(
               <tr key={c.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium">{c.name}</td>
                 <td className="px-4 py-3 text-gray-500">{c.email||'—'}</td>

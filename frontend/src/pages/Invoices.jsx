@@ -23,6 +23,13 @@ export default function Invoices() {
   const [form, setForm]             = useState(emptyForm);
   const [payForm, setPayForm]       = useState(emptyPay);
   const [payError, setPayError]     = useState('');
+  const [search, setSearch]         = useState('');
+
+  const filtered = items.filter(inv => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [invCode(inv.id, inv.createdAt), inv.customer?.name, inv.project?.name, inv.status].some(v => v?.toLowerCase().includes(q));
+  });
 
   const load = () => {
     const params = statusFilter ? `?status=${statusFilter}` : '';
@@ -200,13 +207,16 @@ export default function Invoices() {
       </div>
 
       {/* Status filter */}
-      <div className="flex gap-2">
-        {[['','All'],['UNPAID','Unpaid'],['PARTIAL','Partial'],['PAID','Paid'],['OVERDUE','Overdue'],['CANCELLED','Cancelled']].map(([val,label]) => (
-          <button key={val} onClick={()=>setStatus(val)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${statusFilter===val?'bg-orange-500 text-white border-orange-500':'bg-white text-gray-600 border-gray-200 hover:border-orange-300'}`}>
-            {label}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <div className="flex gap-2">
+          {[['','All'],['UNPAID','Unpaid'],['PARTIAL','Partial'],['PAID','Paid'],['OVERDUE','Overdue'],['CANCELLED','Cancelled']].map(([val,label]) => (
+            <button key={val} onClick={()=>setStatus(val)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${statusFilter===val?'bg-orange-500 text-white border-orange-500':'bg-white text-gray-600 border-gray-200 hover:border-orange-300'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <input type="text" placeholder="Search invoices..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full max-w-xs border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
@@ -215,7 +225,10 @@ export default function Invoices() {
             <tr>{['Code','Customer','Project','Due Date','Total','Paid','Balance','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {items.map(inv => {
+            {filtered.length === 0 && (
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400 text-sm">No invoices found</td></tr>
+            )}
+            {filtered.map(inv => {
               const paid    = (inv.payments||[]).reduce((s,p) => s + +p.amount, 0);
               const balance = +inv.total - paid;
               const canPay  = (inv.status==='UNPAID'||inv.status==='PARTIAL'||inv.status==='OVERDUE') && balance > 0;
