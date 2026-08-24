@@ -25,3 +25,4 @@ export const cusCode  = (id, date) => docCode('CUS',  id, date);
 export const empCode  = (id, date) => docCode('EMP',  id, date);
 export const dsgCode  = (id, date) => docCode('DSG',  id, date);
 export const invyCode = (id, date) => docCode('INVY', id, date);
+export const astCode  = (id, date) => docCode('AST',  id, date);

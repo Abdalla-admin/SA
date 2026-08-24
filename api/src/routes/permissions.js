@@ -11,6 +11,7 @@ const MODULES = [
   { id: 'projects',       label: 'Projects',         group: 'Operations'   },
   { id: 'materials',      label: 'Materials',        group: 'Inventory'    },
   { id: 'purchases',      label: 'Purchases',        group: 'Inventory'    },
+  { id: 'assets',         label: 'Assets',           group: 'Inventory'    },
   { id: 'quotations',     label: 'Quotations',       group: 'Finance'      },
   { id: 'contracts',      label: 'Contracts',        group: 'Finance'      },
   { id: 'invoices',       label: 'Invoices',         group: 'Finance'      },

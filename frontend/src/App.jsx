@@ -12,6 +12,7 @@ import Customers    from './pages/Customers';
 import Vendors      from './pages/Vendors';
 import Employees    from './pages/Employees';
 import Materials    from './pages/Materials';
+import Assets       from './pages/Assets';
 import Purchases    from './pages/Purchases';
 import Quotations     from './pages/Quotations';
 import Invoices       from './pages/Invoices';
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="vendors"     element={<PermGuard module="vendors"><Vendors /></PermGuard>} />
             <Route path="employees"   element={<PermGuard module="employees"><Employees /></PermGuard>} />
             <Route path="materials"   element={<PermGuard module="materials"><Materials /></PermGuard>} />
+            <Route path="assets"      element={<PermGuard module="assets"><Assets /></PermGuard>} />
             <Route path="purchases"   element={<PermGuard module="purchases"><Purchases /></PermGuard>} />
             <Route path="quotations"  element={<PermGuard module="quotations"><Quotations /></PermGuard>} />
 <Route path="invoices"       element={<PermGuard module="invoices"><Invoices /></PermGuard>} />

@@ -41,6 +41,10 @@ const colors = {
   RECEIVED: 'bg-green-100 text-green-700',
   ORDERED: 'bg-blue-100 text-blue-700',
   CANCELLED: 'bg-gray-100 text-gray-500',
+  // Asset
+  UNDER_MAINTENANCE: 'bg-yellow-100 text-yellow-700',
+  RETIRED: 'bg-gray-100 text-gray-500',
+  DISPOSED: 'bg-red-100 text-red-700',
 };
 
 export default function StatusBadge({ status }) {

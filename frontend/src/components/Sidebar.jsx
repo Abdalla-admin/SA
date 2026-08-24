@@ -14,6 +14,7 @@ const nav = [
   { to: '/projects',      label: 'Projects',         icon: '⚡', module: 'projects' },
   { section: 'Inventory' },
   { to: '/materials',     label: 'Inventory',        icon: '🔧', module: 'materials' },
+  { to: '/assets',        label: 'Assets',           icon: '🏷️', module: 'assets' },
   { to: '/purchases',     label: 'Purchases',        icon: '🛒', module: 'purchases' },
   { section: 'Finance' },
   { to: '/quotations',    label: 'Quotations',       icon: '📋', module: 'quotations' },
