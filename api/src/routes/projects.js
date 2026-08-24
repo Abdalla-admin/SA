@@ -13,6 +13,7 @@ const include = {
   warranty: true,
   materialAllocations: { include: { material: { select: { id: true, name: true, unit: true } } } },
   invoices: { include: { payments: true }, orderBy: { createdAt: 'desc' } },
+  expenses: { include: { bankAccount: { select: { id: true, name: true } } }, orderBy: { expenseDate: 'desc' } },
 };
 
 router.get('/', auth, async (req, res) => {

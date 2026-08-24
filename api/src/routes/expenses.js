@@ -48,6 +48,16 @@ router.put('/:id', auth, async (req, res) => {
   res.json(await prisma.expense.update({ where: { id: +req.params.id }, data, include }));
 });
 
+router.patch('/:id/project', auth, async (req, res) => {
+  const { projectId } = req.body;
+  const expense = await prisma.expense.update({
+    where: { id: +req.params.id },
+    data: { projectId: projectId ? +projectId : null },
+    include,
+  });
+  res.json(expense);
+});
+
 router.delete('/:id', auth, async (req, res) => {
   const expense = await prisma.expense.findUnique({ where: { id: +req.params.id }, include: { payslip: true } });
   if (!expense) return res.status(404).json({ error: 'Not found' });

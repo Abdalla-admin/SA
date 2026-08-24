@@ -3,7 +3,7 @@ import client from '../api/client';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
 import { useDialog } from '../context/DialogContext';
-import { invCode } from '../utils/docCode';
+import { invCode, expCode } from '../utils/docCode';
 
 const STATUSES = ['PLANNING','DESIGN','PROCUREMENT','EXECUTION','COMMISSIONING','COMPLETED','ON_HOLD'];
 const STATUS_PROGRESS = { PLANNING:5, DESIGN:20, PROCUREMENT:40, EXECUTION:65, COMMISSIONING:85, COMPLETED:100, ON_HOLD:null };
@@ -18,11 +18,20 @@ export default function Projects() {
   const [selected, setSelected]     = useState(null);
   const [allInvoices, setAllInvoices] = useState([]);
   const [linkInvId, setLinkInvId]   = useState('');
+  const [allExpenses, setAllExpenses] = useState([]);
+  const [linkExpId, setLinkExpId]   = useState('');
+  const [search, setSearch]         = useState('');
 
   useEffect(() => {
     client.get('/projects').then(r => setProjects(r.data));
     client.get('/customers').then(r => setCustomers(r.data));
   }, []);
+
+  const filtered = projects.filter(p => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [p.name, p.customer?.name, p.status].some(v => v?.toLowerCase().includes(q));
+  });
 
   const save = async e => {
     e.preventDefault();
@@ -52,13 +61,16 @@ export default function Projects() {
   };
 
   const openDetail = async (p) => {
-    const [{ data }, { data: invs }] = await Promise.all([
+    const [{ data }, { data: invs }, { data: exps }] = await Promise.all([
       client.get(`/projects/${p.id}`),
       client.get('/invoices'),
+      client.get('/expenses'),
     ]);
     setSelected(data);
     setAllInvoices(invs);
+    setAllExpenses(exps);
     setLinkInvId('');
+    setLinkExpId('');
     setModal('detail');
   };
 
@@ -72,6 +84,20 @@ export default function Projects() {
 
   const unlinkInvoice = async (invId) => {
     await client.patch(`/invoices/${invId}/project`, { projectId: null });
+    const { data } = await client.get(`/projects/${selected.id}`);
+    setSelected(data);
+  };
+
+  const linkExpense = async () => {
+    if (!linkExpId) return;
+    await client.patch(`/expenses/${linkExpId}/project`, { projectId: selected.id });
+    const { data } = await client.get(`/projects/${selected.id}`);
+    setSelected(data);
+    setLinkExpId('');
+  };
+
+  const unlinkExpense = async (expId) => {
+    await client.patch(`/expenses/${expId}/project`, { projectId: null });
     const { data } = await client.get(`/projects/${selected.id}`);
     setSelected(data);
   };
@@ -107,8 +133,13 @@ export default function Projects() {
         <button onClick={() => { setForm(empty); setModal('form'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New Project</button>
       </div>
 
+      <input type="text" placeholder="Search projects..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full max-w-xs border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+
+      {filtered.length === 0 && (
+        <p className="text-center text-gray-400 text-sm py-8">No projects found</p>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {projects.map(p => (
+        {filtered.map(p => (
           <div key={p.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col">
             <div className="flex justify-between items-start mb-3">
               <div>
@@ -319,6 +350,64 @@ export default function Projects() {
                 </table>
               ) : (
                 <p className="px-4 py-6 text-center text-sm text-gray-400">No invoices linked yet. Use the dropdown above to link existing invoices.</p>
+              )}
+            </div>
+
+            {/* Expenses */}
+            <div className="border border-gray-100 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-4 py-2 flex justify-between items-center">
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Expenses</p>
+                <span className="text-xs text-gray-400">{selected.expenses?.length || 0} linked</span>
+              </div>
+
+              {/* Link existing expense */}
+              <div className="px-4 py-2 border-b border-gray-100 flex gap-2 items-center">
+                <select value={linkExpId} onChange={e => setLinkExpId(e.target.value)}
+                  className="flex-1 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-400">
+                  <option value="">— Link an existing expense —</option>
+                  {allExpenses
+                    .filter(e => !e.projectId)
+                    .map(e => (
+                      <option key={e.id} value={e.id}>
+                        {expCode(e.id, e.createdAt)} — {e.category || 'Uncategorized'} — $ {(+e.amount).toLocaleString()}
+                      </option>
+                    ))}
+                </select>
+                <button onClick={linkExpense} disabled={!linkExpId}
+                  className="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium disabled:opacity-40">
+                  Link
+                </button>
+              </div>
+
+              {selected.expenses?.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead className="border-t border-gray-100 text-xs text-gray-400 uppercase">
+                    <tr>{['Category','Description','Amount','Account','Date',''].map(h => <th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {selected.expenses.map(exp => (
+                      <tr key={exp.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-xs text-gray-600">{exp.category || '—'}</td>
+                        <td className="px-3 py-2 text-xs text-gray-600">{exp.description || (exp.items?.length ? `${exp.items.length} item${exp.items.length>1?'s':''}` : '—')}</td>
+                        <td className="px-3 py-2 font-medium text-red-600">$ {(+exp.amount).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                        <td className="px-3 py-2 text-xs text-gray-500">{exp.bankAccount?.name||'—'}</td>
+                        <td className="px-3 py-2 text-xs text-gray-500">{new Date(exp.expenseDate).toLocaleDateString()}</td>
+                        <td className="px-3 py-2">
+                          <button onClick={() => unlinkExpense(exp.id)} className="text-xs text-gray-400 hover:text-red-500">Unlink</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50 border-t border-gray-100 text-xs font-semibold">
+                    <tr>
+                      <td colSpan={2} className="px-3 py-2 text-gray-500">Total</td>
+                      <td className="px-3 py-2 text-red-600">$ {selected.expenses.reduce((s,e) => s + (+e.amount||0), 0).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+                      <td colSpan={3} />
+                    </tr>
+                  </tfoot>
+                </table>
+              ) : (
+                <p className="px-4 py-6 text-center text-sm text-gray-400">No expenses linked yet. Use the dropdown above to link existing expenses.</p>
               )}
             </div>
 
