@@ -22,9 +22,10 @@ router.post('/', auth, async (req, res) => {
   try {
     const { items, ...data } = req.body;
     if (!items || !items.length) return res.status(400).json({ error: 'At least one line item is required' });
-    const total = items.reduce((s, i) => s + (+i.totalCost || 0), 0);
+    const subtotal = items.reduce((s, i) => s + (+i.totalCost || 0), 0);
+    const total = subtotal - (+data.discount || 0);
     const purchase = await prisma.purchase.create({
-      data: { ...data, totalAmount: total, items: { create: items } },
+      data: { ...data, discount: +data.discount || 0, totalAmount: total, items: { create: items } },
       include,
     });
     res.status(201).json(purchase);
@@ -44,10 +45,12 @@ router.put('/:id', auth, async (req, res) => {
 
   if (items) {
     if (!items.length) return res.status(400).json({ error: 'At least one line item is required' });
-    const total = items.reduce((s, i) => s + (+i.totalCost || 0), 0);
+    const subtotal = items.reduce((s, i) => s + (+i.totalCost || 0), 0);
+    const discount = data.discount !== undefined ? +data.discount || 0 : existing.discount;
+    const total = subtotal - discount;
     const [, purchase] = await prisma.$transaction([
       prisma.purchaseItem.deleteMany({ where: { purchaseId } }),
-      prisma.purchase.update({ where: { id: purchaseId }, data: { ...data, totalAmount: total, items: { create: items } }, include }),
+      prisma.purchase.update({ where: { id: purchaseId }, data: { ...data, discount, totalAmount: total, items: { create: items } }, include }),
     ]);
     return res.json(purchase);
   }

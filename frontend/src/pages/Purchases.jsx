@@ -5,7 +5,7 @@ import StatusBadge from '../components/StatusBadge';
 import { useDialog } from '../context/DialogContext';
 import { purCode } from '../utils/docCode';
 
-const emptyForm = { vendorId:'', bankAccountId:'', orderDate: new Date().toISOString().split('T')[0], notes:'', items:[{materialId:'',quantity:1,unitCost:0,totalCost:0}] };
+const emptyForm = { vendorId:'', bankAccountId:'', orderDate: new Date().toISOString().split('T')[0], discount:0, notes:'', items:[{materialId:'',quantity:1,unitCost:0,totalCost:0}] };
 
 const Field = ({ label, value }) => (
   <div>
@@ -26,6 +26,7 @@ const printPO = (po) => {
   <div class="meta"><div><strong>Vendor:</strong> ${po.vendor?.name||'—'}</div><div><strong>Status:</strong> ${po.status||'—'}</div><div><strong>Order Date:</strong> ${new Date(po.orderDate).toLocaleDateString()}</div><div><strong>Bank Account:</strong> ${po.bankAccount?.name||'Cash/Expense'}</div></div>
   ${po.notes?`<p style="font-size:13px"><strong>Notes:</strong> ${po.notes}</p>`:''}
   <table><thead><tr><th>Material</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table>
+  ${(+po.discount)>0?`<div class="total" style="font-size:13px;font-weight:normal;color:#374151">Discount: -$ ${(+po.discount).toLocaleString('en-US',{minimumFractionDigits:2})}</div>`:''}
   <div class="total">Total: $ ${(+po.totalAmount).toLocaleString('en-US',{minimumFractionDigits:2})}</div>
   <script>window.print();<\/script></body></html>`);
   w.document.close();
@@ -44,8 +45,15 @@ export default function Purchases() {
   const [receiveModal, setReceiveModal] = useState(null);
   const [receiveDate, setReceiveDate]   = useState('');
   const [receiveError, setReceiveError] = useState('');
+  const [search, setSearch]             = useState('');
 
   const load = () => client.get('/purchases').then(r => setItems(r.data));
+
+  const filtered = items.filter(p => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [`po-${String(p.id).padStart(4,'0')}`, p.vendor?.name, p.status, p.notes].some(v => v?.toLowerCase().includes(q));
+  });
 
   useEffect(() => {
     load();
@@ -64,7 +72,8 @@ export default function Purchases() {
     });
   };
 
-  const poTotal = form.items.reduce((s, i) => s + (+i.quantity * +i.unitCost), 0);
+  const poSubtotal = form.items.reduce((s, i) => s + (+i.quantity * +i.unitCost), 0);
+  const poTotal = poSubtotal - (+form.discount || 0);
 
   const save = async e => {
     e.preventDefault();
@@ -73,6 +82,7 @@ export default function Purchases() {
       vendorId:      form.vendorId      ? +form.vendorId      : null,
       bankAccountId: form.bankAccountId ? +form.bankAccountId : null,
       orderDate: form.orderDate || null,
+      discount: +form.discount || 0,
       notes: form.notes || null,
       items: form.items.map(i => ({
         materialId: +i.materialId,
@@ -102,6 +112,7 @@ export default function Purchases() {
       vendorId: po.vendorId || '',
       bankAccountId: po.bankAccountId || '',
       orderDate: po.orderDate ? po.orderDate.slice(0,10) : '',
+      discount: po.discount || 0,
       notes: po.notes || '',
       items: po.items.map(i => ({ materialId: i.materialId, quantity: i.quantity, unitCost: i.unitCost, totalCost: i.totalCost })),
     });
@@ -158,16 +169,18 @@ export default function Purchases() {
         <button onClick={() => { setForm(emptyForm); setError(''); setModal('form'); }} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ New PO</button>
       </div>
 
+      <input type="text" placeholder="Search purchase orders..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full max-w-xs border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>{['PO #','Vendor','Items','Total','Pay Account','Order Date','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {items.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400 text-sm">No purchase orders yet</td></tr>
+            {filtered.length === 0 && (
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400 text-sm">No purchase orders found</td></tr>
             )}
-            {items.map(p => (
+            {filtered.map(p => (
               <tr key={p.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium">PO-{String(p.id).padStart(4,'0')}</td>
                 <td className="px-4 py-3">{p.vendor?.name || '—'}</td>
@@ -229,8 +242,11 @@ export default function Purchases() {
                   ))}
                 </tbody>
               </table>
-              <div className="text-right text-sm font-bold text-gray-800 mt-2">
-                Total: $ {(+viewed.totalAmount).toLocaleString('en-US',{minimumFractionDigits:2})}
+              <div className="text-right text-sm text-gray-600 mt-2 space-y-0.5">
+                {+viewed.discount > 0 && (
+                  <p>Discount: -$ {(+viewed.discount).toLocaleString('en-US',{minimumFractionDigits:2})}</p>
+                )}
+                <p className="font-bold text-gray-800">Total: $ {(+viewed.totalAmount).toLocaleString('en-US',{minimumFractionDigits:2})}</p>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t">
@@ -301,8 +317,21 @@ export default function Purchases() {
                   <button type="button" onClick={()=>setForm(f=>({...f,items:f.items.filter((_,i)=>i!==idx)}))} className="col-span-1 text-red-400 hover:text-red-600 text-xs text-center">✕</button>
                 </div>
               ))}
-              <div className="text-right text-sm font-bold text-gray-800 mt-2 border-t pt-2">
-                Total: $ {poTotal.toLocaleString('en-US',{minimumFractionDigits:2})}
+              <div className="flex justify-end mt-2 border-t pt-2">
+                <div className="w-64 space-y-1">
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Subtotal</span>
+                    <span>$ {poSubtotal.toLocaleString('en-US',{minimumFractionDigits:2})}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-gray-600">
+                    <label htmlFor="po-discount">Discount ($)</label>
+                    <input id="po-discount" type="number" min="0" step="0.01" value={form.discount} onChange={e=>setForm(f=>({...f,discount:e.target.value}))} className="w-28 border rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-gray-800 border-t pt-1">
+                    <span>Total</span>
+                    <span>$ {poTotal.toLocaleString('en-US',{minimumFractionDigits:2})}</span>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-3">
