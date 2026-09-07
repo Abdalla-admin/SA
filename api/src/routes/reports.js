@@ -212,6 +212,81 @@ router.get('/leads', auth, async (req, res) => {
   res.json({ total, byStatus, bySource, pipelineValue: pipeline._sum.proposalAmount || 0 });
 });
 
+// Bank Statement — opening/closing balance + running ledger for one account over a date range
+router.get('/bank-statement', auth, async (req, res) => {
+  const { bankAccountId, from, to } = req.query;
+  if (!bankAccountId) return res.status(400).json({ error: 'bankAccountId is required' });
+
+  const account = await prisma.bankAccount.findUnique({
+    where: { id: +bankAccountId },
+    include: {
+      payments: { include: { invoice: { select: { id: true, customer: { select: { name: true } } } } } },
+      expenses: true,
+      transfersFrom: { include: { toAccount: { select: { id: true, name: true } } } },
+      transfersTo: { include: { fromAccount: { select: { id: true, name: true } } } },
+    },
+  });
+  if (!account) return res.status(404).json({ error: 'Not found' });
+
+  const all = [];
+  account.payments.forEach(p => all.push({
+    date: p.paidAt, type: 'credit', amount: p.amount,
+    label: `Payment received — Invoice #${p.invoice?.id ?? '—'} (${p.invoice?.customer?.name || '—'})`,
+    ref: p.reference || p.method || '',
+  }));
+  account.expenses.forEach(e => all.push({
+    date: e.expenseDate, type: 'debit', amount: e.amount,
+    label: `Expense — ${e.description || e.category || 'Expense'}`,
+    ref: e.category || '',
+  }));
+  account.transfersFrom.forEach(t => all.push({
+    date: t.transferDate, type: 'debit', amount: t.amount,
+    label: `Transfer to ${t.toAccount?.name || '—'}`, ref: t.reference || '',
+  }));
+  account.transfersTo.forEach(t => all.push({
+    date: t.transferDate, type: 'credit', amount: t.amount,
+    label: `Transfer from ${t.fromAccount?.name || '—'}`, ref: t.reference || '',
+  }));
+  all.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const fromDate = from ? new Date(from) : null;
+  const toDate   = to ? new Date(new Date(to).setHours(23, 59, 59, 999)) : null;
+
+  // Walk backward from the live current balance to find the balance as of `to`
+  let closingBalance = account.balance;
+  if (toDate) {
+    for (let i = all.length - 1; i >= 0; i--) {
+      if (new Date(all[i].date) > toDate) {
+        closingBalance += all[i].type === 'credit' ? -all[i].amount : all[i].amount;
+      }
+    }
+  }
+
+  const inRange = all.filter(t =>
+    (!fromDate || new Date(t.date) >= fromDate) && (!toDate || new Date(t.date) <= toDate)
+  );
+
+  // Continue walking backward through the range to find the balance just before `from`
+  let openingBalance = closingBalance;
+  for (let i = inRange.length - 1; i >= 0; i--) {
+    openingBalance += inRange[i].type === 'credit' ? -inRange[i].amount : inRange[i].amount;
+  }
+
+  let running = openingBalance;
+  const transactions = inRange.map(t => {
+    running += t.type === 'credit' ? t.amount : -t.amount;
+    return { ...t, balance: running };
+  });
+
+  const totalIn  = inRange.filter(t => t.type === 'credit').reduce((s, t) => s + t.amount, 0);
+  const totalOut = inRange.filter(t => t.type === 'debit').reduce((s, t) => s + t.amount, 0);
+
+  res.json({
+    account: { id: account.id, name: account.name, bankName: account.bankName, accountNumber: account.accountNumber, currency: account.currency },
+    openingBalance, closingBalance, totalIn, totalOut, transactions,
+  });
+});
+
 // Warranty
 router.get('/warranty', auth, async (req, res) => {
   const warranties = await prisma.warranty.findMany({

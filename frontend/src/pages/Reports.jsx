@@ -10,6 +10,7 @@ const fmtQty = n => { const num = +n; return Number.isInteger(num) ? num.toStrin
 const TABS = [
   { id:'pl',        label:'P & L' },
   { id:'cashflow',  label:'Cash Flow' },
+  { id:'bank',      label:'Bank Statement' },
   { id:'sales',     label:'Sales' },
   { id:'expenses',  label:'Expenses' },
   { id:'inventory', label:'Inventory' },
@@ -253,6 +254,138 @@ function CashFlowReport() {
           <SummaryCard label="Cash Out (Expenses)"  value={fmt(data.totalOut)} color="text-red-600" />
           <SummaryCard label="Net Cash Flow"        value={fmt(data.net)}      color={data.net>=0?'text-blue-600':'text-red-600'} bg={data.net>=0?'bg-blue-50':'bg-red-50'} />
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Bank Statement ────────────────────────────────────────────────────────────
+function BankStatementReport() {
+  const [accounts, setAccounts]   = useState([]);
+  const [accountId, setAccountId] = useState('');
+  const [from, setFrom]           = useState('');
+  const [to, setTo]               = useState('');
+  const [data, setData]           = useState(null);
+  const [error, setError]         = useState('');
+
+  useEffect(() => {
+    client.get('/bank-accounts').then(r => {
+      setAccounts(r.data);
+      if (r.data.length && !accountId) setAccountId(String(r.data[0].id));
+    });
+  }, []);
+
+  const load = async (id = accountId) => {
+    if (!id) return;
+    setError('');
+    const p = new URLSearchParams({ bankAccountId: id });
+    if (from && to) { p.set('from', from); p.set('to', to); }
+    try {
+      const { data: d } = await client.get(`/reports/bank-statement?${p.toString()}`);
+      setData(d);
+    } catch (err) {
+      setData(null);
+      setError(err.response?.data?.error || 'Failed to load statement');
+    }
+  };
+
+  useEffect(() => { if (accountId) load(accountId); }, [accountId]);
+
+  const doPrint = () => {
+    if (!data) return;
+    const rows = data.transactions.map(t => `<tr>
+      <td>${fmtD(t.date)}</td>
+      <td>${t.label}</td>
+      <td>${t.ref||'—'}</td>
+      <td style="text-align:right;color:#dc2626">${t.type==='debit'?fmt(t.amount):''}</td>
+      <td style="text-align:right;color:#16a34a">${t.type==='credit'?fmt(t.amount):''}</td>
+      <td style="text-align:right;font-weight:bold">${fmt(t.balance)}</td>
+    </tr>`).join('');
+    printWindow(`Bank Statement — ${data.account.name}`, from && to ? `${from} → ${to}` : 'All time',
+      `<div style="display:flex;gap:16px;margin-bottom:16px">
+        <div class="card"><div class="card-label">Opening Balance</div><div class="card-value">${fmt(data.openingBalance)}</div></div>
+        <div class="card"><div class="card-label">Total In</div><div class="card-value" style="color:#16a34a">${fmt(data.totalIn)}</div></div>
+        <div class="card"><div class="card-label">Total Out</div><div class="card-value" style="color:#dc2626">${fmt(data.totalOut)}</div></div>
+        <div class="card"><div class="card-label">Closing Balance</div><div class="card-value" style="color:#1d4ed8">${fmt(data.closingBalance)}</div></div>
+      </div>
+      <table><thead><tr><th>Date</th><th>Description</th><th>Ref</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th></tr></thead>
+      <tbody>${rows}</tbody></table>`
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap bg-gray-50 p-3 rounded-lg">
+        <div className="flex items-center gap-2 text-sm">
+          <label className="text-gray-500">Bank Account</label>
+          <select value={accountId} onChange={e=>setAccountId(e.target.value)} className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+            {accounts.length === 0 && <option value="">No accounts</option>}
+            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}{a.bankName?` · ${a.bankName}`:''}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <label className="text-gray-500">From</label>
+          <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <label className="text-gray-500">To</label>
+          <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+        </div>
+        <button onClick={()=>load()} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium">Generate</button>
+      </div>
+
+      {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
+
+      {data && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <SummaryCard label="Opening Balance" value={fmt(data.openingBalance)} />
+            <SummaryCard label="Total In"  value={fmt(data.totalIn)}  color="text-green-600" />
+            <SummaryCard label="Total Out" value={fmt(data.totalOut)} color="text-red-600" />
+            <SummaryCard label="Closing Balance" value={fmt(data.closingBalance)} color="text-blue-700" bg="bg-blue-50" />
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+            <div className="px-4 py-2 border-b bg-gray-50 flex justify-between items-center">
+              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                {data.account.name}{data.account.bankName?` · ${data.account.bankName}`:''}{data.account.accountNumber?` · ${data.account.accountNumber}`:''}
+              </span>
+              <button onClick={doPrint} className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs text-gray-600 font-medium">🖨 Print</button>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                <tr>{['Date','Description','Ref','Debit','Credit','Balance'].map(h=><th key={h} className="px-4 py-2 text-left">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                <tr className="bg-gray-50">
+                  <td colSpan={5} className="px-4 py-2 text-gray-500 font-medium">Opening Balance</td>
+                  <td className="px-4 py-2 font-bold">{fmt(data.openingBalance)}</td>
+                </tr>
+                {data.transactions.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No transactions in this period</td></tr>
+                )}
+                {data.transactions.map((t, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{fmtD(t.date)}</td>
+                    <td className="px-4 py-2 text-gray-800">{t.label}</td>
+                    <td className="px-4 py-2 text-gray-400 text-xs">{t.ref||'—'}</td>
+                    <td className="px-4 py-2 text-red-600 font-medium">{t.type==='debit'?fmt(t.amount):''}</td>
+                    <td className="px-4 py-2 text-green-600 font-medium">{t.type==='credit'?fmt(t.amount):''}</td>
+                    <td className="px-4 py-2 font-semibold">{fmt(t.balance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-bold text-sm">
+                <tr>
+                  <td colSpan={3} className="px-4 py-3 text-gray-700">Closing Balance</td>
+                  <td className="px-4 py-3 text-red-600">{fmt(data.totalOut)}</td>
+                  <td className="px-4 py-3 text-green-700">{fmt(data.totalIn)}</td>
+                  <td className="px-4 py-3 text-blue-700">{fmt(data.closingBalance)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
@@ -925,6 +1058,7 @@ export default function Reports() {
   const panels = {
     pl:        <PLReport />,
     cashflow:  <CashFlowReport />,
+    bank:      <BankStatementReport />,
     sales:     <SalesReport />,
     expenses:  <ExpensesReport />,
     inventory: <InventoryReport />,
